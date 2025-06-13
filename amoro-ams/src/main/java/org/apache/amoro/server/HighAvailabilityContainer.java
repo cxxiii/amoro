@@ -36,24 +36,34 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 
+/** 高可用容器类，实现基于Zookeeper的Leader选举功能 实现了LeaderLatchListener接口，用于监听Leader状态变化 */
 public class HighAvailabilityContainer implements LeaderLatchListener {
 
   public static final Logger LOG = LoggerFactory.getLogger(HighAvailabilityContainer.class);
 
-  private final LeaderLatch leaderLatch;
-  private final CuratorFramework zkClient;
-  private final String tableServiceMasterPath;
-  private final String optimizingServiceMasterPath;
-  private final AmsServerInfo tableServiceServerInfo;
-  private final AmsServerInfo optimizingServiceServerInfo;
-  private volatile CountDownLatch followerLath;
+  private final LeaderLatch leaderLatch; // Leader选举器
+  private final CuratorFramework zkClient; // Zookeeper客户端
+  private final String tableServiceMasterPath; // 表服务Master节点路径
+  private final String optimizingServiceMasterPath; // 优化服务Master节点路径
+  private final AmsServerInfo tableServiceServerInfo; // 表服务服务器信息
+  private final AmsServerInfo optimizingServiceServerInfo; // 优化服务服务器信息
+  private volatile CountDownLatch followerLath; // 用于同步Follower状态的计数器
 
+  /**
+   * 构造函数，初始化高可用容器
+   *
+   * @param serviceConfig 服务配置
+   * @throws Exception 初始化过程中可能抛出的异常
+   */
   public HighAvailabilityContainer(Configurations serviceConfig) throws Exception {
     if (serviceConfig.getBoolean(AmoroManagementConf.HA_ENABLE)) {
+      // 高可用模式下的初始化
       String zkServerAddress = serviceConfig.getString(AmoroManagementConf.HA_ZOOKEEPER_ADDRESS);
       String haClusterName = serviceConfig.getString(AmoroManagementConf.HA_CLUSTER_NAME);
       tableServiceMasterPath = AmsHAProperties.getTableServiceMasterPath(haClusterName);
       optimizingServiceMasterPath = AmsHAProperties.getOptimizingServiceMasterPath(haClusterName);
+
+      // 配置Zookeeper重试策略
       ExponentialBackoffRetry retryPolicy = new ExponentialBackoffRetry(1000, 3, 5000);
       this.zkClient =
           CuratorFrameworkFactory.builder()
@@ -63,13 +73,19 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
               .retryPolicy(retryPolicy)
               .build();
       zkClient.start();
+
+      // 创建必要的Zookeeper路径
       createPathIfNeeded(tableServiceMasterPath);
       createPathIfNeeded(optimizingServiceMasterPath);
       String leaderPath = AmsHAProperties.getLeaderPath(haClusterName);
       createPathIfNeeded(leaderPath);
+
+      // 初始化Leader选举器
       leaderLatch = new LeaderLatch(zkClient, leaderPath);
       leaderLatch.addListener(this);
       leaderLatch.start();
+
+      // 构建服务器信息
       this.tableServiceServerInfo =
           buildServerInfo(
               serviceConfig.getString(AmoroManagementConf.SERVER_EXPOSE_HOST),
@@ -81,22 +97,29 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
               serviceConfig.getInteger(AmoroManagementConf.OPTIMIZING_SERVICE_THRIFT_BIND_PORT),
               serviceConfig.getInteger(AmoroManagementConf.HTTP_SERVER_PORT));
     } else {
+      // 非高可用模式下的初始化
       leaderLatch = null;
       zkClient = null;
       tableServiceMasterPath = null;
       optimizingServiceMasterPath = null;
       tableServiceServerInfo = null;
       optimizingServiceServerInfo = null;
-      // block follower latch forever when ha is disabled
+      // 当高可用禁用时，永久阻塞follower latch
       followerLath = new CountDownLatch(1);
     }
   }
 
+  /**
+   * 等待当前服务实例成为Leader（主节点），并在成为Leader后更新Zookeeper上的服务信息
+   *
+   * @throws Exception 等待过程中可能抛出的异常
+   */
   public void waitLeaderShip() throws Exception {
     LOG.info("Waiting to become the leader of AMS");
     if (leaderLatch != null) {
       leaderLatch.await();
       if (leaderLatch.hasLeadership()) {
+        // 成为Leader后更新Zookeeper上的服务信息
         zkClient
             .setData()
             .forPath(
@@ -113,6 +136,12 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     LOG.info("Became the leader of AMS");
   }
 
+  /**
+   * 等待成为Follower 让当前服务实例等待成为AMS(Arctic Meta Service)的Follower(从节点)
+   * 主要用于高可用场景下，当服务实例从Leader降级为Follower时的状态同步
+   *
+   * @throws Exception 等待过程中可能抛出的异常
+   */
   public void waitFollowerShip() throws Exception {
     LOG.info("Waiting to become the follower of AMS");
     if (followerLath != null) {
@@ -121,6 +150,7 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     LOG.info("Became the follower of AMS");
   }
 
+  /** 关闭高可用服务 */
   public void close() {
     if (leaderLatch != null) {
       try {
@@ -132,6 +162,7 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     }
   }
 
+  /** 成为Leader时的回调方法 */
   @Override
   public void isLeader() {
     LOG.info(
@@ -141,6 +172,7 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     followerLath = new CountDownLatch(1);
   }
 
+  /** 失去Leader时的回调方法 */
   @Override
   public void notLeader() {
     LOG.info(
@@ -150,6 +182,14 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     followerLath.countDown();
   }
 
+  /**
+   * 构建服务器信息对象
+   *
+   * @param host 主机地址
+   * @param thriftBindPort Thrift绑定端口
+   * @param restBindPort REST绑定端口
+   * @return 构建好的服务器信息对象
+   */
   private AmsServerInfo buildServerInfo(String host, int thriftBindPort, int restBindPort) {
     AmsServerInfo amsServerInfo = new AmsServerInfo();
     amsServerInfo.setHost(host);
@@ -158,11 +198,17 @@ public class HighAvailabilityContainer implements LeaderLatchListener {
     return amsServerInfo;
   }
 
+  /**
+   * 在Zookeeper上创建路径（如果不存在）
+   *
+   * @param path 要创建的路径
+   * @throws Exception 创建过程中可能抛出的异常
+   */
   private void createPathIfNeeded(String path) throws Exception {
     try {
       zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.PERSISTENT).forPath(path);
     } catch (KeeperException.NodeExistsException e) {
-      // ignore
+      // 忽略路径已存在的异常
     }
   }
 }
