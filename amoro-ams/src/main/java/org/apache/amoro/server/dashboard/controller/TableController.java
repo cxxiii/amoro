@@ -98,19 +98,29 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/** The controller that handles table requests. */
+/**
+ * 处理表相关请求的控制器类
+ * 提供表的各种操作接口，包括获取表详情、优化信息、分区信息等
+ */
 public class TableController {
   private static final Logger LOG = LoggerFactory.getLogger(TableController.class);
-  private static final long UPGRADE_INFO_EXPIRE_INTERVAL = 60 * 60 * 1000;
+  private static final long UPGRADE_INFO_EXPIRE_INTERVAL = 60 * 60 * 1000; // 升级信息过期时间间隔(1小时)
 
-  private final CatalogManager catalogManager;
-  private final TableManager tableManager;
-  private final ServerTableDescriptor tableDescriptor;
-  private final Configurations serviceConfig;
+  private final CatalogManager catalogManager; // 目录管理器
+  private final TableManager tableManager; // 表管理器
+  private final ServerTableDescriptor tableDescriptor; // 表描述器
+  private final Configurations serviceConfig; // 服务配置
   private final ConcurrentHashMap<TableIdentifier, UpgradeRunningInfo> upgradeRunningInfo =
-      new ConcurrentHashMap<>();
-  private final ScheduledExecutorService tableUpgradeExecutor;
+      new ConcurrentHashMap<>(); // 存储表升级状态信息的Map
+  private final ScheduledExecutorService tableUpgradeExecutor; // 表升级执行器
 
+  /**
+   * 构造函数
+   * @param catalogManager 目录管理器
+   * @param tableManager 表管理器
+   * @param tableDescriptor 表描述器
+   * @param serviceConfig 服务配置
+   */
   public TableController(
       CatalogManager catalogManager,
       TableManager tableManager,
@@ -130,16 +140,15 @@ public class TableController {
   }
 
   /**
-   * get table detail.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表详情信息
+   * @param ctx HTTP请求上下文
    */
   public void getTableDetail(Context ctx) {
-
     String catalog = ctx.pathParam("catalog");
     String database = ctx.pathParam("db");
     String tableName = ctx.pathParam("table");
 
+    // 参数校验
     Preconditions.checkArgument(
         StringUtils.isNotBlank(catalog)
             && StringUtils.isNotBlank(database)
@@ -147,10 +156,13 @@ public class TableController {
         "catalog.database.tableName can not be empty in any element");
     Preconditions.checkState(catalogManager.catalogExist(catalog), "invalid catalog!");
 
+    // 获取表详情元数据
     ServerTableMeta serverTableMeta =
         tableDescriptor.getTableDetail(
             TableIdentifier.of(catalog, database, tableName).buildTableIdentifier());
     TableSummary tableSummary = serverTableMeta.getTableSummary();
+
+    // 获取表运行时信息并设置优化状态
     Optional<ServerTableIdentifier> serverTableIdentifier =
         Optional.ofNullable(
             tableManager.getServerTableIdentifier(
@@ -173,9 +185,8 @@ public class TableController {
   }
 
   /**
-   * get hive table detail.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取Hive表详情信息
+   * @param ctx HTTP请求上下文
    */
   public void getHiveTableDetail(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -186,12 +197,15 @@ public class TableController {
             && StringUtils.isNotBlank(db)
             && StringUtils.isNotBlank(table),
         "catalog.database.tableName can not be empty in any element");
+
+    // 获取HMS客户端连接池
     ServerCatalog serverCatalog = catalogManager.getServerCatalog(catalog);
     CatalogMeta catalogMeta = serverCatalog.getMetadata();
     TableMetaStore tableMetaStore = CatalogUtil.buildMetaStore(catalogMeta);
     HMSClientPool hmsClientPool =
         new CachedHiveClientPool(tableMetaStore, catalogMeta.getCatalogProperties());
 
+    // 加载Hive表信息并转换为前端需要的格式
     TableIdentifier tableIdentifier = TableIdentifier.of(catalog, db, table);
     HiveTableInfo hiveTableInfo;
     Table hiveTable = HiveTableUtil.loadHmsTable(hmsClientPool, tableIdentifier);
@@ -210,9 +224,8 @@ public class TableController {
   }
 
   /**
-   * upgrade a hive table to mixed-hive table.
-   *
-   * @param ctx - context for handling the request and response
+   * 将Hive表升级为Mixed-Hive表
+   * @param ctx HTTP请求上下文
    */
   public void upgradeHiveTable(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -225,28 +238,32 @@ public class TableController {
         "catalog.database.tableName can not be empty in any element");
     UpgradeHiveMeta upgradeHiveMeta = ctx.bodyAsClass(UpgradeHiveMeta.class);
 
+    // 获取目录元数据并配置AMS URI
     ServerCatalog serverCatalog = catalogManager.getServerCatalog(catalog);
     CatalogMeta catalogMeta = serverCatalog.getMetadata();
     String amsUri = AmsUtil.getAMSThriftAddress(serviceConfig, Constants.THRIFT_TABLE_SERVICE_NAME);
     catalogMeta.putToCatalogProperties(CatalogMetaProperties.AMS_URI, amsUri);
     TableMetaStore tableMetaStore = CatalogUtil.buildMetaStore(catalogMeta);
-    // check whether catalog support MIXED_HIVE format.
+
+    // 检查目录是否支持MIXED_HIVE格式
     Set<TableFormat> tableFormats = CatalogUtil.tableFormats(catalogMeta);
     Preconditions.checkState(
         tableFormats.contains(TableFormat.MIXED_HIVE),
         "Catalog %s does not support MIXED_HIVE format",
         catalog);
-    // we should only keep MIXED_HIVE format，
-    // so `CatalogLoader.createCatalog` can get right CatalogImpl through calling catalogImpl.
+
+    // 配置目录属性，只保留MIXED_HIVE格式
     Map<String, String> originCatalogProperties = catalogMeta.getCatalogProperties();
     Map<String, String> catalogProperties = new HashMap<>(originCatalogProperties);
     catalogProperties.put(CatalogMetaProperties.TABLE_FORMATS, TableFormat.MIXED_HIVE.name());
 
+    // 创建MixedHiveCatalog实例
     MixedHiveCatalog mixedHiveCatalog =
         (MixedHiveCatalog)
             CatalogLoader.createCatalog(
                 catalog, catalogMeta.getCatalogType(), catalogProperties, tableMetaStore);
 
+    // 异步执行表升级任务
     tableUpgradeExecutor.execute(
         () -> {
           TableIdentifier tableIdentifier = TableIdentifier.of(catalog, db, table);
@@ -254,7 +271,7 @@ public class TableController {
           try {
             UpgradeHiveTableUtil.upgradeHiveTable(
                 mixedHiveCatalog,
-                TableIdentifier.of(catalog, db, table),
+                tableIdentifier,
                 upgradeHiveMeta.getPkList().stream()
                     .map(UpgradeHiveMeta.PrimaryKeyField::getFieldName)
                     .collect(Collectors.toList()),
@@ -265,6 +282,7 @@ public class TableController {
             upgradeRunningInfo.get(tableIdentifier).setErrorMessage(AmsUtil.getStackTrace(t));
             upgradeRunningInfo.get(tableIdentifier).setStatus(UpgradeStatus.FAILED.toString());
           } finally {
+            // 设置升级信息过期时间
             tableUpgradeExecutor.schedule(
                 () -> upgradeRunningInfo.remove(tableIdentifier),
                 UPGRADE_INFO_EXPIRE_INTERVAL,
@@ -274,6 +292,10 @@ public class TableController {
     ctx.json(OkResponse.ok());
   }
 
+  /**
+   * 获取表升级状态
+   * @param ctx HTTP请求上下文
+   */
   public void getUpgradeStatus(Context ctx) {
     String catalog = ctx.pathParam("catalog");
     String db = ctx.pathParam("db");
@@ -286,12 +308,13 @@ public class TableController {
   }
 
   /**
-   * get table properties for upgrading hive table to mixed-hive table.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取Hive表升级为Mixed-Hive表所需的属性
+   * @param ctx HTTP请求上下文
+   * @throws IllegalAccessException 如果访问属性时出错
    */
   public void getUpgradeHiveTableProperties(Context ctx) throws IllegalAccessException {
     Map<String, String> keyValues = new TreeMap<>();
+    // 获取表属性
     Map<String, String> tableProperties =
         AmsUtil.getNotDeprecatedAndNotInternalStaticFields(TableProperties.class);
     tableProperties.keySet().stream()
@@ -299,9 +322,10 @@ public class TableController {
         .forEach(
             key -> keyValues.put(tableProperties.get(key), tableProperties.get(key + "_DEFAULT")));
     ServerTableProperties.HIDDEN_EXPOSED.forEach(keyValues::remove);
+
+    // 获取Hive表属性
     Map<String, String> hiveProperties =
         AmsUtil.getNotDeprecatedAndNotInternalStaticFields(HiveTableProperties.class);
-
     hiveProperties.keySet().stream()
         .filter(key -> HiveTableProperties.EXPOSED.contains(hiveProperties.get(key)))
         .filter(key -> !key.endsWith("_DEFAULT"))
@@ -311,19 +335,16 @@ public class TableController {
   }
 
   /**
-   * get list of optimizing processes.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表的优化进程列表
+   * @param ctx HTTP请求上下文
    */
   public void getOptimizingProcesses(Context ctx) {
-
     String catalog = ctx.pathParam("catalog");
     String db = ctx.pathParam("db");
     String table = ctx.pathParam("table");
     String type = ctx.queryParam("type");
 
     if (StringUtils.isBlank(type)) {
-      // treat all blank string to null
       type = null;
     }
 
@@ -339,6 +360,8 @@ public class TableController {
     TableIdentifier tableIdentifier = TableIdentifier.of(catalog, db, table);
     ProcessStatus processStatus =
         StringUtils.isBlank(status) ? null : ProcessStatus.valueOf(status);
+
+    // 获取优化进程信息
     Pair<List<OptimizingProcessInfo>, Integer> optimizingProcessesInfo =
         tableDescriptor.getOptimizingProcessesInfo(
             tableIdentifier.buildTableIdentifier(), type, processStatus, limit, offset);
@@ -348,6 +371,10 @@ public class TableController {
     ctx.json(OkResponse.of(PageResult.of(result, total)));
   }
 
+  /**
+   * 获取表的优化类型
+   * @param ctx HTTP请求上下文
+   */
   public void getOptimizingTypes(Context ctx) {
     String catalog = ctx.pathParam("catalog");
     String db = ctx.pathParam("db");
@@ -360,9 +387,8 @@ public class TableController {
   }
 
   /**
-   * Get tasks of optimizing process.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取优化进程的任务列表
+   * @param ctx HTTP请求上下文
    */
   public void getOptimizingProcessTasks(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -387,9 +413,8 @@ public class TableController {
   }
 
   /**
-   * get list of snapshots.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表的快照列表
+   * @param ctx HTTP请求上下文
    */
   public void getTableSnapshots(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -397,7 +422,7 @@ public class TableController {
     String tableName = ctx.pathParam("table");
     Integer page = ctx.queryParamAsClass("page", Integer.class).getOrDefault(1);
     Integer pageSize = ctx.queryParamAsClass("pageSize", Integer.class).getOrDefault(20);
-    // ref means tag/branch
+    // ref表示标签/分支
     String ref = ctx.queryParamAsClass("ref", String.class).getOrDefault(null);
     String operation =
         ctx.queryParamAsClass("operation", String.class)
@@ -416,9 +441,8 @@ public class TableController {
   }
 
   /**
-   * get detail of snapshot.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取快照详情
+   * @param ctx HTTP请求上下文
    */
   public void getSnapshotDetail(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -440,9 +464,8 @@ public class TableController {
   }
 
   /**
-   * get partition list.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表的分区列表
+   * @param ctx HTTP请求上下文
    */
   public void getTablePartitions(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -455,6 +478,7 @@ public class TableController {
     List<PartitionBaseInfo> partitionBaseInfos =
         tableDescriptor.getTablePartition(
             TableIdentifier.of(catalog, database, table).buildTableIdentifier());
+    // 过滤和排序分区信息
     partitionBaseInfos =
         partitionBaseInfos.stream()
             .filter(e -> e.getPartition().contains(filter))
@@ -467,9 +491,8 @@ public class TableController {
   }
 
   /**
-   * get file list of some partition.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取分区文件列表信息
+   * @param ctx HTTP请求上下文
    */
   public void getPartitionFileListInfo(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -491,9 +514,9 @@ public class TableController {
   }
 
   /**
-   * get table operations.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表操作记录
+   * @param ctx HTTP请求上下文
+   * @throws Exception 如果获取操作记录时出错
    */
   public void getTableOperations(Context ctx) throws Exception {
     String catalogName = ctx.pathParam("catalog");
@@ -514,9 +537,8 @@ public class TableController {
   }
 
   /**
-   * get table list of catalog.db.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取目录下数据库的表列表
+   * @param ctx HTTP请求上下文
    */
   public void getTableList(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -527,6 +549,7 @@ public class TableController {
         "catalog.database can not be empty in any element");
 
     ServerCatalog serverCatalog = catalogManager.getServerCatalog(catalog);
+    // 表格式到类型的转换函数
     Function<TableFormat, String> formatToType =
         format -> {
           if (format.equals(TableFormat.MIXED_HIVE) || format.equals(TableFormat.MIXED_ICEBERG)) {
@@ -542,6 +565,7 @@ public class TableController {
           }
         };
 
+    // 获取表列表并按格式和名称排序
     List<TableMeta> tables =
         serverCatalog.listTables(db).stream()
             .map(
@@ -549,7 +573,6 @@ public class TableController {
                     new TableMeta(
                         idWithFormat.getIdentifier().getTableName(),
                         formatToType.apply(idWithFormat.getTableFormat())))
-            // Sort by table format and table name
             .sorted(
                 (table1, table2) -> {
                   if (Objects.equals(table1.getType(), table2.getType())) {
@@ -559,6 +582,8 @@ public class TableController {
                   }
                 })
             .collect(Collectors.toList());
+
+    // 如果是Hive目录，还需要获取Hive表
     String catalogType = serverCatalog.getMetadata().getCatalogType();
     if (catalogType.equals(CATALOG_TYPE_HIVE)) {
       CatalogMeta catalogMeta = serverCatalog.getMetadata();
@@ -575,6 +600,7 @@ public class TableController {
           .forEach(e -> tables.add(new TableMeta(e, TableMeta.TableType.HIVE.toString())));
     }
 
+    // 根据关键词过滤结果
     ctx.json(
         OkResponse.of(
             tables.stream()
@@ -583,9 +609,8 @@ public class TableController {
   }
 
   /**
-   * get databases of some catalog.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取目录下的数据库列表
+   * @param ctx HTTP请求上下文
    */
   public void getDatabaseList(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -599,9 +624,8 @@ public class TableController {
   }
 
   /**
-   * get list of catalogs.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取目录列表
+   * @param ctx HTTP请求上下文
    */
   public void getCatalogs(Context ctx) {
     List<CatalogMeta> catalogs = catalogManager.listCatalogMetas();
@@ -609,9 +633,8 @@ public class TableController {
   }
 
   /**
-   * get single page query token.
-   *
-   * @param ctx - context for handling the request and response
+   * 获取表详情页面的查询令牌
+   * @param ctx HTTP请求上下文
    */
   public void getTableDetailTabToken(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -622,6 +645,10 @@ public class TableController {
     ctx.json(OkResponse.of(signCal));
   }
 
+  /**
+   * 获取表的标签列表
+   * @param ctx HTTP请求上下文
+   */
   public void getTableTags(Context ctx) {
     String catalog = ctx.pathParam("catalog");
     String database = ctx.pathParam("db");
@@ -636,6 +663,10 @@ public class TableController {
     ctx.json(OkResponse.of(amsPageResult));
   }
 
+  /**
+   * 获取表的分支列表
+   * @param ctx HTTP请求上下文
+   */
   public void getTableBranches(Context ctx) {
     String catalog = ctx.pathParam("catalog");
     String database = ctx.pathParam("db");
@@ -651,6 +682,10 @@ public class TableController {
     ctx.json(OkResponse.of(amsPageResult));
   }
 
+  /**
+   * 获取表的消费者信息列表
+   * @param ctx HTTP请求上下文
+   */
   public void getTableConsumerInfos(Context ctx) {
     String catalog = ctx.pathParam("catalog");
     String database = ctx.pathParam("db");
@@ -666,9 +701,8 @@ public class TableController {
   }
 
   /**
-   * cancel the running optimizing process of one certain table.
-   *
-   * @param ctx - context for handling the request and response
+   * 取消表的优化进程
+   * @param ctx HTTP请求上下文
    */
   public void cancelOptimizingProcess(Context ctx) {
     String catalog = ctx.pathParam("catalog");
@@ -682,6 +716,8 @@ public class TableController {
         "catalog.database.tableName can not be empty in any element");
     Preconditions.checkState(catalogManager.catalogExist(catalog), "invalid catalog!");
     long processId = Long.parseLong(processIds);
+
+    // 获取表运行时元数据
     ServerTableIdentifier serverTableIdentifier =
         tableManager.getServerTableIdentifier(
             TableIdentifier.of(catalog, db, table).buildTableIdentifier());
@@ -691,6 +727,7 @@ public class TableController {
           String.format("Can't cancel optimizing process %s", processId));
     }
 
+    // 调用优化服务取消进程
     OptimizingService.Iface client =
         OptimizingClientPools.getClient(
             AmsUtil.getAMSThriftAddress(serviceConfig, Constants.THRIFT_OPTIMIZING_SERVICE_NAME));
@@ -702,6 +739,10 @@ public class TableController {
     ctx.json(OkResponse.ok());
   }
 
+  /**
+   * 将主分支放在分支列表的第一位
+   * @param branchInfos 分支信息列表
+   */
   private void putMainBranchFirst(List<TagOrBranchInfo> branchInfos) {
     if (branchInfos.size() <= 1) {
       return;
@@ -716,6 +757,11 @@ public class TableController {
             });
   }
 
+  /**
+   * 将Hive表模式转换为AMS列信息
+   * @param fields Hive表字段列表
+   * @return AMS列信息列表
+   */
   private List<AMSColumnInfo> transformHiveSchemaToAMSColumnInfo(List<FieldSchema> fields) {
     return fields.stream()
         .map(

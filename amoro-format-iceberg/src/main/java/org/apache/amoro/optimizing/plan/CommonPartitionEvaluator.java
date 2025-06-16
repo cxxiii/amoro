@@ -36,28 +36,41 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 通用分区评估器，用于评估分区是否需要优化以及优化类型
+ */
 public class CommonPartitionEvaluator implements PartitionEvaluator {
   private static final Logger LOG = LoggerFactory.getLogger(CommonPartitionEvaluator.class);
 
+  // 用于跟踪已处理的删除文件，避免重复计算
   private final Set<String> deleteFileSet = Sets.newHashSet();
 
+  // 分区信息
   private final Pair<Integer, StructLike> partition;
+  // 表标识符
   protected final ServerTableIdentifier identifier;
+  // 优化配置
   protected final OptimizingConfig config;
+  // 上次全量优化时间
   protected final long lastFullOptimizingTime;
+  // 上次小优化时间
   protected final long lastMinorOptimizingTime;
+  // 碎片文件大小阈值
   protected final long fragmentSize;
+  // 最小目标大小
   protected final long minTargetSize;
+  // 计划时间
   protected final long planTime;
 
+  // 是否达到全量优化间隔
   private final boolean reachFullInterval;
 
-  // fragment files
+  // 碎片文件统计
   protected int fragmentFileCount = 0;
   protected long fragmentFileSize = 0;
   protected long fragmentFileRecords = 0;
 
-  // segment files
+  // 段文件统计
   protected int rewriteSegmentFileCount = 0;
   protected long rewriteSegmentFileSize = 0L;
   protected long rewriteSegmentFileRecords = 0L;
@@ -71,7 +84,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
   protected long min1SegmentFileSize = Integer.MAX_VALUE;
   protected long min2SegmentFileSize = Integer.MAX_VALUE;
 
-  // delete files
+  // 删除文件统计
   protected int equalityDeleteFileCount = 0;
   protected long equalityDeleteFileSize = 0L;
   protected long equalityDeleteFileRecords = 0L;
@@ -79,11 +92,21 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
   protected long posDeleteFileSize = 0L;
   protected long posDeleteFileRecords = 0L;
 
+  // 缓存的计算结果
   private long cost = -1;
   private Boolean necessary = null;
   private OptimizingType optimizingType = null;
   private String name;
 
+  /**
+   * 构造函数
+   * @param identifier 表标识符
+   * @param config 优化配置
+   * @param partition 分区信息
+   * @param planTime 计划时间
+   * @param lastMinorOptimizingTime 上次小优化时间
+   * @param lastFullOptimizingTime 上次全量优化时间
+   */
   public CommonPartitionEvaluator(
       ServerTableIdentifier identifier,
       OptimizingConfig config,
@@ -114,14 +137,30 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return partition;
   }
 
+  /**
+   * 判断是否为碎片文件
+   * @param dataFile 数据文件
+   * @return 是否为碎片文件
+   */
   protected boolean isFragmentFile(DataFile dataFile) {
     return dataFile.fileSizeInBytes() <= fragmentSize;
   }
 
+  /**
+   * 判断是否为小于目标大小的段文件
+   * @param dataFile 数据文件
+   * @return 是否为小于目标大小的段文件
+   */
   protected boolean isUndersizedSegmentFile(DataFile dataFile) {
     return dataFile.fileSizeInBytes() > fragmentSize && dataFile.fileSizeInBytes() <= minTargetSize;
   }
 
+  /**
+   * 添加文件到评估器
+   * @param dataFile 数据文件
+   * @param deletes 关联的删除文件
+   * @return 是否成功添加
+   */
   @Override
   public boolean addFile(DataFile dataFile, List<ContentFile<?>> deletes) {
     if (!config.isEnabled()) {
@@ -136,6 +175,11 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     }
   }
 
+  /**
+   * 检查是否为重复的删除文件
+   * @param delete 删除文件
+   * @return 是否已存在
+   */
   private boolean isDuplicateDelete(ContentFile<?> delete) {
     boolean deleteExist = deleteFileSet.contains(delete.path().toString());
     if (!deleteExist) {
@@ -144,6 +188,12 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return deleteExist;
   }
 
+  /**
+   * 添加碎片文件
+   * @param dataFile 数据文件
+   * @param deletes 关联的删除文件
+   * @return 是否成功添加
+   */
   private boolean addFragmentFile(DataFile dataFile, List<ContentFile<?>> deletes) {
     fragmentFileSize += dataFile.fileSizeInBytes();
     fragmentFileCount++;
@@ -155,10 +205,16 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return true;
   }
 
+  /**
+   * 添加小于目标大小的段文件
+   * @param dataFile 数据文件
+   * @param deletes 关联的删除文件
+   * @return 是否成功添加
+   */
   private boolean addUndersizedSegmentFile(DataFile dataFile, List<ContentFile<?>> deletes) {
-    // Because UndersizedSegment can determine whether it is rewritten during the split task stage.
-    // So the calculated posDeleteFileCount, posDeleteFileSize, equalityDeleteFileCount,
-    // equalityDeleteFileSize are not accurate
+    // 因为UndersizedSegment可以在拆分任务阶段确定是否重写
+    // 所以计算的posDeleteFileCount、posDeleteFileSize、equalityDeleteFileCount、
+    // equalityDeleteFileSize不准确
     for (ContentFile<?> delete : deletes) {
       addDelete(delete);
     }
@@ -169,7 +225,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
       return true;
     }
 
-    // Cache the size of the smallest two files
+    // 缓存最小的两个文件的大小
     if (dataFile.fileSizeInBytes() < min1SegmentFileSize) {
       min2SegmentFileSize = min1SegmentFileSize;
       min1SegmentFileSize = dataFile.fileSizeInBytes();
@@ -183,6 +239,12 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return true;
   }
 
+  /**
+   * 添加已达到目标大小的文件
+   * @param dataFile 数据文件
+   * @param deletes 关联的删除文件
+   * @return 是否成功添加
+   */
   private boolean addTargetSizeReachedFile(DataFile dataFile, List<ContentFile<?>> deletes) {
     if (fileShouldRewrite(dataFile, deletes)) {
       rewriteSegmentFileSize += dataFile.fileSizeInBytes();
@@ -207,14 +269,26 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return false;
   }
 
+  /**
+   * 判断文件是否需要全量优化
+   * @param dataFile 数据文件
+   * @param deleteFiles 删除文件列表
+   * @return 是否需要全量优化
+   */
   protected boolean fileShouldFullOptimizing(DataFile dataFile, List<ContentFile<?>> deleteFiles) {
     if (config.isFullRewriteAllFiles()) {
       return true;
     }
-    // If a file is related any delete files or is not big enough, it should full optimizing
+    // 如果文件关联了任何删除文件或者不够大，应该进行全量优化
     return !deleteFiles.isEmpty() || isFragmentFile(dataFile) || isUndersizedSegmentFile(dataFile);
   }
 
+  /**
+   * 判断文件是否需要重写
+   * @param dataFile 数据文件
+   * @param deletes 删除文件列表
+   * @return 是否需要重写
+   */
   public boolean fileShouldRewrite(DataFile dataFile, List<ContentFile<?>> deletes) {
     if (isFullOptimizing()) {
       return fileShouldFullOptimizing(dataFile, deletes);
@@ -222,17 +296,20 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     if (isFragmentFile(dataFile)) {
       return true;
     }
-    // When Upsert writing is enabled in the Flink engine, both INSERT and UPDATE_AFTER will
-    // generate deletes files (Most are eq-delete), and eq-delete file will be associated
-    // with the data file before the current snapshot.
-    // The eq-delete does not accurately reflect how much data has been deleted in the current
-    // segment file (That is, whether the segment file needs to be rewritten).
-    // And the eq-delete file will be converted to pos-delete during minor optimizing, so only
-    // pos-delete record count is calculated here.
+    // 当在Flink引擎中启用Upsert写入时，INSERT和UPDATE_AFTER都会生成删除文件（主要是eq-delete）
+    // eq-delete文件将与当前快照之前的数据文件关联
+    // eq-delete不能准确反映当前段文件中删除了多少数据（即是否需要重写段文件）
+    // 并且eq-delete文件在小优化期间会转换为pos-delete，所以这里只计算pos-delete记录数
     return getPosDeletesRecordCount(deletes)
         > dataFile.recordCount() * config.getMajorDuplicateRatio();
   }
 
+  /**
+   * 判断段文件是否需要重写位置信息
+   * @param dataFile 数据文件
+   * @param deletes 删除文件列表
+   * @return 是否需要重写位置信息
+   */
   public boolean segmentShouldRewritePos(DataFile dataFile, List<ContentFile<?>> deletes) {
     Preconditions.checkArgument(!isFragmentFile(dataFile), "Unsupported fragment file.");
     long equalDeleteFileCount = 0;
@@ -258,10 +335,19 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     }
   }
 
+  /**
+   * 是否处于全量优化状态
+   * @return 是否处于全量优化状态
+   */
   protected boolean isFullOptimizing() {
     return reachFullInterval();
   }
 
+  /**
+   * 获取位置删除记录数
+   * @param files 文件列表
+   * @return 位置删除记录数
+   */
   private long getPosDeletesRecordCount(List<ContentFile<?>> files) {
     return files.stream()
         .filter(file -> file.content() == FileContent.POSITION_DELETES)
@@ -269,6 +355,10 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
         .sum();
   }
 
+  /**
+   * 添加删除文件
+   * @param delete 删除文件
+   */
   private void addDelete(ContentFile<?> delete) {
     if (isDuplicateDelete(delete)) {
       return;
@@ -300,9 +390,8 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
   @Override
   public long getCost() {
     if (cost < 0) {
-      // We estimate that the cost of writing is the same as reading.
-      // When rewriting the Position delete file, only the primary key field of the segment file
-      // will be read, so only one-tenth of the size is calculated based on the size.
+      // 我们估计写入成本与读取成本相同
+      // 当重写位置删除文件时，只会读取段文件的主键字段，所以只计算大小的十分之一
       cost =
           (fragmentFileSize + rewriteSegmentFileSize + undersizedSegmentFileSize) * 2
               + rewritePosSegmentFileSize / 10
@@ -338,21 +427,29 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
   }
 
   /**
-   * Segment files has enough content.
+   * 段文件是否有足够的内容
    *
-   * <p>1. The total size of all undersized segment files is greater than target size
+   * <p>1. 所有小于目标大小的段文件总大小大于目标大小
    *
-   * <p>2. There are two undersized segment file that can be merged into one
+   * <p>2. 有两个小于目标大小的段文件可以合并为一个
    */
   public boolean enoughContent() {
     return undersizedSegmentFileSize >= config.getTargetSize()
         && min1SegmentFileSize + min2SegmentFileSize <= config.getTargetSize();
   }
 
+  /**
+   * 是否需要主优化
+   * @return 是否需要主优化
+   */
   public boolean isMajorNecessary() {
     return enoughContent() || rewriteSegmentFileCount > 0;
   }
 
+  /**
+   * 是否需要小优化
+   * @return 是否需要小优化
+   */
   public boolean isMinorNecessary() {
     int smallFileCount = fragmentFileCount + equalityDeleteFileCount;
     return smallFileCount >= config.getMinorLeastFileCount()
@@ -360,15 +457,27 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
         || combinePosSegmentFileCount > 0;
   }
 
+  /**
+   * 是否达到小优化间隔
+   * @return 是否达到小优化间隔
+   */
   protected boolean reachMinorInterval() {
     return config.getMinorLeastInterval() >= 0
         && planTime - lastMinorOptimizingTime > config.getMinorLeastInterval();
   }
 
+  /**
+   * 是否达到全量优化间隔
+   * @return 是否达到全量优化间隔
+   */
   protected boolean reachFullInterval() {
     return reachFullInterval;
   }
 
+  /**
+   * 是否需要全量优化
+   * @return 是否需要全量优化
+   */
   public boolean isFullNecessary() {
     if (!reachFullInterval()) {
       return false;
@@ -380,6 +489,10 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
         || rewritePosSegmentFileCount > 0;
   }
 
+  /**
+   * 获取分区名称
+   * @return 分区名称
+   */
   protected String name() {
     if (name == null) {
       name = String.format("partition %s of %s", partition, identifier.toString());
@@ -387,6 +500,10 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return name;
   }
 
+  /**
+   * 是否存在任何删除文件
+   * @return 是否存在删除文件
+   */
   public boolean anyDeleteExist() {
     return equalityDeleteFileCount > 0 || posDeleteFileCount > 0;
   }
@@ -411,32 +528,57 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
                         + 20 * getPosDeletePenaltyFactor(posDeleteRatio)));
   }
 
+  /**
+   * 获取相等删除惩罚因子
+   * @param eqDeleteRatio 相等删除比率
+   * @return 惩罚因子
+   */
   private double getEqDeletePenaltyFactor(double eqDeleteRatio) {
     double eqDeleteRatioThreshold = config.getMajorDuplicateRatio();
     return getNormalizedRatio(eqDeleteRatio, eqDeleteRatioThreshold);
   }
 
+  /**
+   * 获取位置删除惩罚因子
+   * @param posDeleteRatio 位置删除比率
+   * @return 惩罚因子
+   */
   private double getPosDeletePenaltyFactor(double posDeleteRatio) {
     double posDeleteRatioThreshold = config.getMajorDuplicateRatio() * 2;
     return getNormalizedRatio(posDeleteRatio, posDeleteRatioThreshold);
   }
 
+  /**
+   * 获取小文件惩罚因子
+   * @param averageDataFileSize 平均数据文件大小
+   * @return 惩罚因子
+   */
   private double getSmallFilePenaltyFactor(double averageDataFileSize) {
     return 1 - getNormalizedRatio(averageDataFileSize, minTargetSize);
   }
 
+  /**
+   * 获取表惩罚因子
+   * @param dataFiles 数据文件数量
+   * @param dataFilesSize 数据文件总大小
+   * @return 惩罚因子
+   */
   private double getTablePenaltyFactor(long dataFiles, long dataFilesSize) {
-    // if the number of table files is less than or equal to 1,
-    // there is no penalty, i.e., the table is considered to be perfectly healthy
+    // 如果表文件数量小于等于1，没有惩罚，即表被认为是完全健康的
     if (dataFiles <= 1) {
       return 0;
     }
-    // The small table has very little impact on performance,
-    // so there is only a small penalty
+    // 小表对性能影响很小，所以只有很小的惩罚
     return getNormalizedRatio(dataFiles, config.getMinorLeastFileCount())
         * getNormalizedRatio(dataFilesSize, config.getTargetSize());
   }
 
+  /**
+   * 获取标准化比率
+   * @param numerator 分子
+   * @param denominator 分母
+   * @return 标准化比率
+   */
   private double getNormalizedRatio(double numerator, double denominator) {
     if (denominator <= 0) {
       return 0;
@@ -504,6 +646,9 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return posDeleteFileRecords;
   }
 
+  /**
+   * 权重类，用于比较分区优化成本
+   */
   public static class Weight implements PartitionEvaluator.Weight {
 
     private final long cost;

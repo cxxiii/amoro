@@ -28,15 +28,31 @@ import org.apache.amoro.shade.guava32.com.google.common.collect.Lists;
 
 import java.util.List;
 
+/**
+ * 抽象表指标基类，用于管理和注册表级别的监控指标
+ */
 public abstract class AbstractTableMetrics {
+  // 表标识符
   protected final ServerTableIdentifier identifier;
+  // 已注册的指标键列表
   protected final List<MetricKey> registeredMetricKeys = Lists.newArrayList();
+  // 全局指标注册器
   protected MetricRegistry globalRegistry;
 
+  /**
+   * 构造函数
+   * @param identifier 表标识符
+   */
   protected AbstractTableMetrics(ServerTableIdentifier identifier) {
     this.identifier = identifier;
   }
 
+  /**
+   * 注册单个指标
+   * @param registry 指标注册器
+   * @param define 指标定义
+   * @param metric 指标实例
+   */
   protected void registerMetric(MetricRegistry registry, MetricDefine define, Metric metric) {
     MetricKey key =
         registry.register(
@@ -52,6 +68,10 @@ public abstract class AbstractTableMetrics {
     registeredMetricKeys.add(key);
   }
 
+  /**
+   * 注册所有指标到指定的注册器
+   * @param registry 指标注册器
+   */
   public void register(MetricRegistry registry) {
     if (globalRegistry == null) {
       registerMetrics(registry);
@@ -59,6 +79,9 @@ public abstract class AbstractTableMetrics {
     }
   }
 
+  /**
+   * 取消注册所有已注册的指标
+   */
   public void unregister() {
     if (globalRegistry != null) {
       registeredMetricKeys.forEach(globalRegistry::unregister);
@@ -67,5 +90,9 @@ public abstract class AbstractTableMetrics {
     }
   }
 
+  /**
+   * 抽象方法，由子类实现具体的指标注册逻辑
+   * @param registry 指标注册器
+   */
   protected abstract void registerMetrics(MetricRegistry registry);
 }
