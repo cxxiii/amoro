@@ -22,15 +22,13 @@ import org.apache.amoro.table.TableIdentifier;
 
 import java.util.Objects;
 
-/**
- * 服务端表标识符，包含服务端ID和表格式信息
- */
+/** 服务端表标识符，包含服务端ID和表格式信息 */
 public class ServerTableIdentifier {
 
-  private Long id;            // 服务端表ID
-  private String catalog;     // 目录名称
-  private String database;    // 数据库名称
-  private String tableName;   // 表名称
+  private Long id; // 服务端表ID
+  private String catalog; // 目录名称
+  private String database; // 数据库名称
+  private String tableName; // 表名称
   private TableFormat format; // 表格式
 
   // 供MyBatis框架使用的无参构造方法
@@ -38,6 +36,7 @@ public class ServerTableIdentifier {
 
   /**
    * 通过TableIdentifier和表格式构造ServerTableIdentifier
+   *
    * @param tableIdentifier 表标识符
    * @param format 表格式
    */
@@ -50,6 +49,7 @@ public class ServerTableIdentifier {
 
   /**
    * 通过目录、数据库、表名和表格式构造ServerTableIdentifier
+   *
    * @param catalog 目录名称
    * @param database 数据库名称
    * @param tableName 表名称
@@ -65,6 +65,7 @@ public class ServerTableIdentifier {
 
   /**
    * 通过ID、目录、数据库、表名和表格式构造ServerTableIdentifier
+   *
    * @param id 服务端表ID
    * @param catalog 目录名称
    * @param database 数据库名称
@@ -123,6 +124,7 @@ public class ServerTableIdentifier {
 
   /**
    * 重写equals方法，比较两个ServerTableIdentifier是否相等
+   *
    * @param o 要比较的对象
    * @return 如果相等返回true，否则返回false
    */
@@ -143,6 +145,7 @@ public class ServerTableIdentifier {
 
   /**
    * 重写hashCode方法
+   *
    * @return 对象的哈希值
    */
   @Override
@@ -152,6 +155,7 @@ public class ServerTableIdentifier {
 
   /**
    * 重写toString方法
+   *
    * @return 对象的字符串表示形式
    */
   @Override
@@ -161,6 +165,7 @@ public class ServerTableIdentifier {
 
   /**
    * 静态工厂方法，通过TableIdentifier和表格式创建ServerTableIdentifier
+   *
    * @param tableIdentifier 表标识符
    * @param format 表格式
    * @return 新的ServerTableIdentifier实例
@@ -171,6 +176,7 @@ public class ServerTableIdentifier {
 
   /**
    * 静态工厂方法，通过目录、数据库、表名和表格式创建ServerTableIdentifier
+   *
    * @param catalog 目录名称
    * @param database 数据库名称
    * @param tableName 表名称
@@ -184,6 +190,7 @@ public class ServerTableIdentifier {
 
   /**
    * 静态工厂方法，通过ID、目录、数据库、表名和表格式创建ServerTableIdentifier
+   *
    * @param id 服务端表ID
    * @param catalog 目录名称
    * @param database 数据库名称
@@ -198,6 +205,7 @@ public class ServerTableIdentifier {
 
   /**
    * 获取TableIdentifier对象
+   *
    * @return 包含目录、数据库和表名的TableIdentifier对象
    */
   public TableIdentifier getIdentifier() {

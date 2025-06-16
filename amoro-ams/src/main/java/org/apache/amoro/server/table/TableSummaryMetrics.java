@@ -29,9 +29,7 @@ import org.apache.amoro.shade.guava32.com.google.common.collect.Lists;
 import org.apache.amoro.table.MixedTable;
 import org.apache.amoro.table.UnkeyedTable;
 
-/**
- * 表摘要指标类，用于收集和注册表的各种摘要信息指标
- */
+/** 表摘要指标类，用于收集和注册表的各种摘要信息指标 */
 public class TableSummaryMetrics extends AbstractTableMetrics {
 
   // 表摘要文件数量相关指标
@@ -138,6 +136,7 @@ public class TableSummaryMetrics extends AbstractTableMetrics {
 
   /**
    * 构造函数
+   *
    * @param identifier 表标识符
    */
   public TableSummaryMetrics(ServerTableIdentifier identifier) {
@@ -146,6 +145,7 @@ public class TableSummaryMetrics extends AbstractTableMetrics {
 
   /**
    * 注册所有指标到指标注册表中
+   *
    * @param registry 指标注册表
    */
   @Override
@@ -224,6 +224,7 @@ public class TableSummaryMetrics extends AbstractTableMetrics {
 
   /**
    * 刷新表摘要数据
+   *
    * @param tableSummary 新的表摘要数据
    */
   public void refresh(AbstractOptimizingEvaluator.PendingInput tableSummary) {
@@ -235,6 +236,7 @@ public class TableSummaryMetrics extends AbstractTableMetrics {
 
   /**
    * 刷新快照数量
+   *
    * @param table 混合表对象
    */
   public void refreshSnapshots(MixedTable table) {

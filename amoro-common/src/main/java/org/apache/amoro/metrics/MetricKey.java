@@ -29,17 +29,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/**
- * 指标键定义类，用于唯一标识一个注册的指标
- * 包含指标定义和对应的标签值集合
- */
+/** 指标键定义类，用于唯一标识一个注册的指标 包含指标定义和对应的标签值集合 */
 public class MetricKey {
 
-  private final MetricDefine define;       // 指标定义对象
-  private final Map<String, String> valueOfTags;  // 标签名到标签值的映射
+  private final MetricDefine define; // 指标定义对象
+  private final Map<String, String> valueOfTags; // 标签名到标签值的映射
 
   /**
    * 构造函数
+   *
    * @param define 指标定义，不能为null
    * @param tagValues 标签值映射，可以为null（会被转换为空映射）
    * @throws IllegalArgumentException 如果标签值与指标定义不匹配
@@ -68,6 +66,7 @@ public class MetricKey {
 
   /**
    * 获取指标定义
+   *
    * @return 指标定义对象
    */
   public MetricDefine getDefine() {
@@ -76,6 +75,7 @@ public class MetricKey {
 
   /**
    * 获取指定标签的值
+   *
    * @param tag 标签名
    * @return 标签值，如果不存在则返回空字符串
    */
@@ -85,6 +85,7 @@ public class MetricKey {
 
   /**
    * 获取所有标签的值列表
+   *
    * @return 不可修改的标签值列表（按定义中的标签顺序）
    */
   public List<String> valueOfTags() {

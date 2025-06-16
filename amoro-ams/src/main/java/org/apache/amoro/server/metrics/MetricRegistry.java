@@ -36,10 +36,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-/**
- * AMoro指标注册库，用于管理和跟踪所有注册的指标
- * 实现了MetricSet接口，提供指标集合功能
- */
+/** AMoro指标注册库，用于管理和跟踪所有注册的指标 实现了MetricSet接口，提供指标集合功能 */
 public class MetricRegistry implements MetricSet {
 
   // 使用CopyOnWriteArrayList保证线程安全的监听器列表
@@ -126,7 +123,7 @@ public class MetricRegistry implements MetricSet {
         (name, pair) -> {
           int count = pair.getRight() - 1;
           if (count <= 0) {
-            return null;  // 引用计数为0时移除定义
+            return null; // 引用计数为0时移除定义
           } else {
             return Pair.of(pair.getLeft(), count);
           }

@@ -98,10 +98,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * 处理表相关请求的控制器类
- * 提供表的各种操作接口，包括获取表详情、优化信息、分区信息等
- */
+/** 处理表相关请求的控制器类 提供表的各种操作接口，包括获取表详情、优化信息、分区信息等 */
 public class TableController {
   private static final Logger LOG = LoggerFactory.getLogger(TableController.class);
   private static final long UPGRADE_INFO_EXPIRE_INTERVAL = 60 * 60 * 1000; // 升级信息过期时间间隔(1小时)
@@ -116,6 +113,7 @@ public class TableController {
 
   /**
    * 构造函数
+   *
    * @param catalogManager 目录管理器
    * @param tableManager 表管理器
    * @param tableDescriptor 表描述器
@@ -141,6 +139,7 @@ public class TableController {
 
   /**
    * 获取表详情信息
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableDetail(Context ctx) {
@@ -186,6 +185,7 @@ public class TableController {
 
   /**
    * 获取Hive表详情信息
+   *
    * @param ctx HTTP请求上下文
    */
   public void getHiveTableDetail(Context ctx) {
@@ -225,6 +225,7 @@ public class TableController {
 
   /**
    * 将Hive表升级为Mixed-Hive表
+   *
    * @param ctx HTTP请求上下文
    */
   public void upgradeHiveTable(Context ctx) {
@@ -294,6 +295,7 @@ public class TableController {
 
   /**
    * 获取表升级状态
+   *
    * @param ctx HTTP请求上下文
    */
   public void getUpgradeStatus(Context ctx) {
@@ -309,6 +311,7 @@ public class TableController {
 
   /**
    * 获取Hive表升级为Mixed-Hive表所需的属性
+   *
    * @param ctx HTTP请求上下文
    * @throws IllegalAccessException 如果访问属性时出错
    */
@@ -336,6 +339,7 @@ public class TableController {
 
   /**
    * 获取表的优化进程列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getOptimizingProcesses(Context ctx) {
@@ -373,6 +377,7 @@ public class TableController {
 
   /**
    * 获取表的优化类型
+   *
    * @param ctx HTTP请求上下文
    */
   public void getOptimizingTypes(Context ctx) {
@@ -388,6 +393,7 @@ public class TableController {
 
   /**
    * 获取优化进程的任务列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getOptimizingProcessTasks(Context ctx) {
@@ -414,6 +420,7 @@ public class TableController {
 
   /**
    * 获取表的快照列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableSnapshots(Context ctx) {
@@ -442,6 +449,7 @@ public class TableController {
 
   /**
    * 获取快照详情
+   *
    * @param ctx HTTP请求上下文
    */
   public void getSnapshotDetail(Context ctx) {
@@ -465,6 +473,7 @@ public class TableController {
 
   /**
    * 获取表的分区列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTablePartitions(Context ctx) {
@@ -492,6 +501,7 @@ public class TableController {
 
   /**
    * 获取分区文件列表信息
+   *
    * @param ctx HTTP请求上下文
    */
   public void getPartitionFileListInfo(Context ctx) {
@@ -515,6 +525,7 @@ public class TableController {
 
   /**
    * 获取表操作记录
+   *
    * @param ctx HTTP请求上下文
    * @throws Exception 如果获取操作记录时出错
    */
@@ -538,6 +549,7 @@ public class TableController {
 
   /**
    * 获取目录下数据库的表列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableList(Context ctx) {
@@ -610,6 +622,7 @@ public class TableController {
 
   /**
    * 获取目录下的数据库列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getDatabaseList(Context ctx) {
@@ -625,6 +638,7 @@ public class TableController {
 
   /**
    * 获取目录列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getCatalogs(Context ctx) {
@@ -634,6 +648,7 @@ public class TableController {
 
   /**
    * 获取表详情页面的查询令牌
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableDetailTabToken(Context ctx) {
@@ -647,6 +662,7 @@ public class TableController {
 
   /**
    * 获取表的标签列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableTags(Context ctx) {
@@ -665,6 +681,7 @@ public class TableController {
 
   /**
    * 获取表的分支列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableBranches(Context ctx) {
@@ -684,6 +701,7 @@ public class TableController {
 
   /**
    * 获取表的消费者信息列表
+   *
    * @param ctx HTTP请求上下文
    */
   public void getTableConsumerInfos(Context ctx) {
@@ -702,6 +720,7 @@ public class TableController {
 
   /**
    * 取消表的优化进程
+   *
    * @param ctx HTTP请求上下文
    */
   public void cancelOptimizingProcess(Context ctx) {
@@ -741,6 +760,7 @@ public class TableController {
 
   /**
    * 将主分支放在分支列表的第一位
+   *
    * @param branchInfos 分支信息列表
    */
   private void putMainBranchFirst(List<TagOrBranchInfo> branchInfos) {
@@ -759,6 +779,7 @@ public class TableController {
 
   /**
    * 将Hive表模式转换为AMS列信息
+   *
    * @param fields Hive表字段列表
    * @return AMS列信息列表
    */

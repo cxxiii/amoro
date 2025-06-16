@@ -36,9 +36,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Set;
 
-/**
- * 通用分区评估器，用于评估分区是否需要优化以及优化类型
- */
+/** 通用分区评估器，用于评估分区是否需要优化以及优化类型 */
 public class CommonPartitionEvaluator implements PartitionEvaluator {
   private static final Logger LOG = LoggerFactory.getLogger(CommonPartitionEvaluator.class);
 
@@ -100,6 +98,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 构造函数
+   *
    * @param identifier 表标识符
    * @param config 优化配置
    * @param partition 分区信息
@@ -139,6 +138,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 判断是否为碎片文件
+   *
    * @param dataFile 数据文件
    * @return 是否为碎片文件
    */
@@ -148,6 +148,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 判断是否为小于目标大小的段文件
+   *
    * @param dataFile 数据文件
    * @return 是否为小于目标大小的段文件
    */
@@ -157,6 +158,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 添加文件到评估器
+   *
    * @param dataFile 数据文件
    * @param deletes 关联的删除文件
    * @return 是否成功添加
@@ -177,6 +179,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 检查是否为重复的删除文件
+   *
    * @param delete 删除文件
    * @return 是否已存在
    */
@@ -190,6 +193,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 添加碎片文件
+   *
    * @param dataFile 数据文件
    * @param deletes 关联的删除文件
    * @return 是否成功添加
@@ -207,6 +211,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 添加小于目标大小的段文件
+   *
    * @param dataFile 数据文件
    * @param deletes 关联的删除文件
    * @return 是否成功添加
@@ -241,6 +246,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 添加已达到目标大小的文件
+   *
    * @param dataFile 数据文件
    * @param deletes 关联的删除文件
    * @return 是否成功添加
@@ -271,6 +277,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 判断文件是否需要全量优化
+   *
    * @param dataFile 数据文件
    * @param deleteFiles 删除文件列表
    * @return 是否需要全量优化
@@ -285,6 +292,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 判断文件是否需要重写
+   *
    * @param dataFile 数据文件
    * @param deletes 删除文件列表
    * @return 是否需要重写
@@ -306,6 +314,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 判断段文件是否需要重写位置信息
+   *
    * @param dataFile 数据文件
    * @param deletes 删除文件列表
    * @return 是否需要重写位置信息
@@ -337,6 +346,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否处于全量优化状态
+   *
    * @return 是否处于全量优化状态
    */
   protected boolean isFullOptimizing() {
@@ -345,6 +355,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取位置删除记录数
+   *
    * @param files 文件列表
    * @return 位置删除记录数
    */
@@ -357,6 +368,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 添加删除文件
+   *
    * @param delete 删除文件
    */
   private void addDelete(ContentFile<?> delete) {
@@ -440,6 +452,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否需要主优化
+   *
    * @return 是否需要主优化
    */
   public boolean isMajorNecessary() {
@@ -448,6 +461,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否需要小优化
+   *
    * @return 是否需要小优化
    */
   public boolean isMinorNecessary() {
@@ -459,6 +473,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否达到小优化间隔
+   *
    * @return 是否达到小优化间隔
    */
   protected boolean reachMinorInterval() {
@@ -468,6 +483,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否达到全量优化间隔
+   *
    * @return 是否达到全量优化间隔
    */
   protected boolean reachFullInterval() {
@@ -476,6 +492,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否需要全量优化
+   *
    * @return 是否需要全量优化
    */
   public boolean isFullNecessary() {
@@ -491,6 +508,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取分区名称
+   *
    * @return 分区名称
    */
   protected String name() {
@@ -502,6 +520,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 是否存在任何删除文件
+   *
    * @return 是否存在删除文件
    */
   public boolean anyDeleteExist() {
@@ -530,6 +549,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取相等删除惩罚因子
+   *
    * @param eqDeleteRatio 相等删除比率
    * @return 惩罚因子
    */
@@ -540,6 +560,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取位置删除惩罚因子
+   *
    * @param posDeleteRatio 位置删除比率
    * @return 惩罚因子
    */
@@ -550,6 +571,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取小文件惩罚因子
+   *
    * @param averageDataFileSize 平均数据文件大小
    * @return 惩罚因子
    */
@@ -559,6 +581,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取表惩罚因子
+   *
    * @param dataFiles 数据文件数量
    * @param dataFilesSize 数据文件总大小
    * @return 惩罚因子
@@ -575,6 +598,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
 
   /**
    * 获取标准化比率
+   *
    * @param numerator 分子
    * @param denominator 分母
    * @return 标准化比率
@@ -646,9 +670,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     return posDeleteFileRecords;
   }
 
-  /**
-   * 权重类，用于比较分区优化成本
-   */
+  /** 权重类，用于比较分区优化成本 */
   public static class Weight implements PartitionEvaluator.Weight {
 
     private final long cost;
