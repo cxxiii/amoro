@@ -593,7 +593,7 @@ public class CommonPartitionEvaluator implements PartitionEvaluator {
     }
     // 小表对性能影响很小，所以只有很小的惩罚
     return getNormalizedRatio(dataFiles, config.getMinorLeastFileCount())
-        * getNormalizedRatio(dataFilesSize, config.getTargetSize());
+        * getNormalizedRatio(dataFilesSize, minTargetSize);
   }
 
   /**
