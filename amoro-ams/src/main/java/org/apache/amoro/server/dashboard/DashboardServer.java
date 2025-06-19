@@ -173,15 +173,22 @@ public class DashboardServer {
     };
   }
 
+  /**
+   * 定义Dashboard服务的API端点路由配置
+   *
+   * @return EndpointGroup 包含所有路由配置的端点组
+   */
   public EndpointGroup endpoints() {
     return () -> {
-      /*backend routers*/
+      /* 后端路由配置 */
       path(
-          "",
+          "",  // 根路径路由
           () -> {
+            // Swagger文档路由
             get(
                 "/swagger-docs",
                 ctx -> {
+                  // 从classpath加载OpenAPI规范文件
                   InputStream openapiStream =
                       getClass().getClassLoader().getResourceAsStream("openapi/openapi.yaml");
                   if (openapiStream == null) {
@@ -190,186 +197,210 @@ public class DashboardServer {
                     ctx.result(openapiStream);
                   }
                 });
-            // static files
+            // 静态文件路由
             get(
-                "/{page}",
+                "/{page}",  // 动态路径参数
                 ctx -> {
                   String fileName = ctx.pathParam("page");
-                  if (fileName.endsWith("ico")) {
+                  if (fileName.endsWith("ico")) {  // 处理图标文件
                     ctx.contentType(ContentType.IMAGE_ICO);
                     ctx.result(
                         Objects.requireNonNull(
                             DashboardServer.class
                                 .getClassLoader()
                                 .getResourceAsStream("static/" + fileName)));
-                  } else {
+                  } else {  // 其他页面返回index.html内容
                     ctx.html(getIndexFileContent());
                   }
                 });
+            // Hive表升级页面路由
             get("/hive-tables/upgrade", ctx -> ctx.html(getIndexFileContent()));
           });
 
-      // for dashboard api
+      // Dashboard API路由组
       path(
-          "/api/ams/v1",
+          "/api/ams/v1",  // API基础路径
           () -> {
-            // login controller
-            get("/login/current", loginController::getCurrent);
-            post("/login", loginController::login);
-            post("/logout", loginController::logout);
+            // 登录相关接口
+            get("/login/current", loginController::getCurrent);  // 获取当前登录状态
+            post("/login", loginController::login);              // 登录接口
+            post("/logout", loginController::logout);            // 登出接口
           });
 
-      // for open api
-      path("/api/ams/v1", apiGroup());
+      // OpenAPI路由组
+      path("/api/ams/v1", apiGroup());  // 复用API基础路径，使用apiGroup定义的路由
     };
   }
 
-  private EndpointGroup apiGroup() {
+/**
+ * 定义Dashboard服务的API端点组
+ *
+ * 该方法返回一个EndpointGroup，包含了Dashboard服务所有的API路由配置，
+ * 按照功能模块分为表管理、目录管理、优化管理、终端操作、文件管理、设置管理等多个API组
+ *
+ * @return EndpointGroup 包含所有API路由配置的端点组
+ */
+private EndpointGroup apiGroup() {
     return () -> {
-      // table apis
+      // 表管理相关API
       path(
           "/tables",
           () -> {
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/details",
-                tableController::getTableDetail);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/hive/details",
-                tableController::getHiveTableDetail);
-            post(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/upgrade",
-                tableController::upgradeHiveTable);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/upgrade/status",
-                tableController::getUpgradeStatus);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes",
-                tableController::getOptimizingProcesses);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-types",
-                tableController::getOptimizingTypes);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes/{processId}/tasks",
-                tableController::getOptimizingProcessTasks);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/snapshots",
-                tableController::getTableSnapshots);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/snapshots/{snapshotId}/detail",
-                tableController::getSnapshotDetail);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/partitions",
-                tableController::getTablePartitions);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/partitions/{partition}/files",
-                tableController::getPartitionFileListInfo);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/operations",
-                tableController::getTableOperations);
+            // 获取表详情
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/details", tableController::getTableDetail);
+            // 获取Hive表详情
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/hive/details", tableController::getHiveTableDetail);
+            // 升级Hive表
+            post("/catalogs/{catalog}/dbs/{db}/tables/{table}/upgrade", tableController::upgradeHiveTable);
+            // 获取升级状态
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/upgrade/status", tableController::getUpgradeStatus);
+            // 获取优化进程列表
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes", tableController::getOptimizingProcesses);
+            // 获取优化类型
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-types", tableController::getOptimizingTypes);
+            // 获取优化进程任务
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes/{processId}/tasks", tableController::getOptimizingProcessTasks);
+            // 获取表快照
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/snapshots", tableController::getTableSnapshots);
+            // 获取快照详情
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/snapshots/{snapshotId}/detail", tableController::getSnapshotDetail);
+            // 获取表分区
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/partitions", tableController::getTablePartitions);
+            // 获取分区文件列表
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/partitions/{partition}/files", tableController::getPartitionFileListInfo);
+            // 获取表操作记录
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/operations", tableController::getTableOperations);
+            // 获取表标签
             get("/catalogs/{catalog}/dbs/{db}/tables/{table}/tags", tableController::getTableTags);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/branches",
-                tableController::getTableBranches);
-            get(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/consumers",
-                tableController::getTableConsumerInfos);
-            post(
-                "/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes/{processId}/cancel",
-                tableController::cancelOptimizingProcess);
+            // 获取表分支
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/branches", tableController::getTableBranches);
+            // 获取表消费者信息
+            get("/catalogs/{catalog}/dbs/{db}/tables/{table}/consumers", tableController::getTableConsumerInfos);
+            // 取消优化进程
+            post("/catalogs/{catalog}/dbs/{db}/tables/{table}/optimizing-processes/{processId}/cancel", tableController::cancelOptimizingProcess);
           });
+      // 获取升级属性
       get("/upgrade/properties", tableController::getUpgradeHiveTableProperties);
 
-      // catalog apis
+      // 目录管理相关API
       path(
           "/catalogs",
           () -> {
+            // 获取表列表
             get("/{catalog}/databases/{db}/tables", tableController::getTableList);
+            // 获取数据库列表
             get("/{catalog}/databases", tableController::getDatabaseList);
+            // 获取目录列表
             get("", tableController::getCatalogs);
+            // 创建目录
             post("", catalogController::createCatalog);
+            // 获取目录类型列表
             get("metastore/types", catalogController::getCatalogTypeList);
+            // 获取目录详情
             get("/{catalogName}", catalogController::getCatalogDetail);
+            // 删除目录
             delete("/{catalogName}", catalogController::deleteCatalog);
+            // 更新目录
             put("/{catalogName}", catalogController::updateCatalog);
+            // 检查目录删除
             get("/{catalogName}/delete/check", catalogController::catalogDeleteCheck);
+            // 获取目录配置文件内容
             get("/{catalogName}/config/{type}/{key}", catalogController::getCatalogConfFileContent);
           });
 
-      // optimizing api
+      // 优化管理相关API
       path(
           "/optimize",
           () -> {
+            // 获取优化动作
             get("/actions", optimizerGroupController::getActions);
-            get(
-                "/optimizerGroups/{optimizerGroup}/tables",
-                optimizerGroupController::getOptimizerTables);
-            get(
-                "/optimizerGroups/{optimizerGroup}/optimizers",
-                optimizerGroupController::getOptimizers);
+            // 获取优化组表
+            get("/optimizerGroups/{optimizerGroup}/tables", optimizerGroupController::getOptimizerTables);
+            // 获取优化器列表
+            get("/optimizerGroups/{optimizerGroup}/optimizers", optimizerGroupController::getOptimizers);
+            // 获取优化组列表
             get("/optimizerGroups", optimizerGroupController::getOptimizerGroups);
-            get(
-                "/optimizerGroups/{optimizerGroup}/info",
-                optimizerGroupController::getOptimizerGroupInfo);
-            post(
-                "/optimizerGroups/{optimizerGroup}/optimizers",
-                optimizerGroupController::scaleOutOptimizer);
+            // 获取优化组信息
+            get("/optimizerGroups/{optimizerGroup}/info", optimizerGroupController::getOptimizerGroupInfo);
+            // 扩展优化器
+            post("/optimizerGroups/{optimizerGroup}/optimizers", optimizerGroupController::scaleOutOptimizer);
+            // 创建优化器
             post("/optimizers", optimizerController::createOptimizer);
+            // 释放优化器
             delete("/optimizers/{jobId}", optimizerController::releaseOptimizer);
+            // 获取资源组
             get("/resourceGroups", optimizerGroupController::getResourceGroup);
+            // 创建资源组
             post("/resourceGroups", optimizerGroupController::createResourceGroup);
+            // 更新资源组
             put("/resourceGroups", optimizerGroupController::updateResourceGroup);
-            delete(
-                "/resourceGroups/{resourceGroupName}",
-                optimizerGroupController::deleteResourceGroup);
-            get(
-                "/resourceGroups/{resourceGroupName}/delete/check",
-                optimizerGroupController::deleteCheckResourceGroup);
+            // 删除资源组
+            delete("/resourceGroups/{resourceGroupName}", optimizerGroupController::deleteResourceGroup);
+            // 检查资源组删除
+            get("/resourceGroups/{resourceGroupName}/delete/check", optimizerGroupController::deleteCheckResourceGroup);
+            // 获取容器
             get("/containers/get", optimizerGroupController::getContainers);
           });
 
-      // console apis
+      // 终端操作相关API
       path(
           "/terminal",
           () -> {
+            // 获取示例列表
             get("/examples", terminalController::getExamples);
+            // 获取SQL示例
             get("/examples/{exampleName}", terminalController::getSqlExamples);
+            // 执行脚本
             post("/catalogs/{catalog}/execute", terminalController::executeScript);
+            // 获取日志
             get("/{sessionId}/logs", terminalController::getLogs);
+            // 获取SQL结果
             get("/{sessionId}/result", terminalController::getSqlResult);
+            // 停止SQL执行
             put("/{sessionId}/stop", terminalController::stopSql);
+            // 获取最新信息
             get("/latestInfos/", terminalController::getLatestInfo);
           });
 
-      // file apis
+      // 文件管理相关API
       path(
           "/files",
           () -> {
+            // 上传文件
             post("", platformFileInfoController::uploadFile);
+            // 下载文件
             get("/{fileId}", platformFileInfoController::downloadFile);
           });
 
-      // setting apis
+      // 设置管理相关API
       path(
           "/settings",
           () -> {
+            // 获取容器设置
             get("/containers", settingController::getContainerSetting);
+            // 获取系统设置
             get("/system", settingController::getSystemSetting);
           });
 
-      // health api
+      // 健康检查API
       get("/health/status", healthCheckController::healthCheck);
 
-      // version api
+      // 版本信息API
       get("/versionInfo", versionController::getVersionInfo);
 
-      // overview apis
+      // 概览相关API
       path(
           "/overview",
           () -> {
+            // 获取概要信息
             get("/summary", overviewController::getSummary);
+            // 获取资源使用历史
             get("/resource", overviewController::getResourceUsageHistory);
+            // 获取优化状态
             get("/optimizing", overviewController::getOptimizingStatus);
+            // 获取数据大小历史
             get("/dataSize", overviewController::getDataSizeHistory);
+            // 获取顶部表
             get("/top", overviewController::getTopTables);
           });
     };

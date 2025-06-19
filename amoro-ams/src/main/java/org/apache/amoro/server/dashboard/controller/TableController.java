@@ -342,38 +342,55 @@ public class TableController {
    *
    * @param ctx HTTP请求上下文
    */
-  public void getOptimizingProcesses(Context ctx) {
+public void getOptimizingProcesses(Context ctx) {
+    // 从路径参数获取catalog、db、table信息
     String catalog = ctx.pathParam("catalog");
     String db = ctx.pathParam("db");
     String table = ctx.pathParam("table");
+    // 从查询参数获取type，如果为空则设为null
     String type = ctx.queryParam("type");
+    System.out.println("type" + type);
+    System.out.println("catalog" + catalog);
+    System.out.println("db" + db);
+    System.out.println("table" + table);
 
     if (StringUtils.isBlank(type)) {
-      type = null;
+        type = null;
     }
 
+    // 从查询参数获取status
     String status = ctx.queryParam("status");
+    // 获取分页参数，默认page=1，pageSize=20
     Integer page = ctx.queryParamAsClass("page", Integer.class).getOrDefault(1);
     Integer pageSize = ctx.queryParamAsClass("pageSize", Integer.class).getOrDefault(20);
 
+    // 计算分页偏移量和限制数
     int offset = (page - 1) * pageSize;
     int limit = pageSize;
+    // 校验分页参数合法性
     Preconditions.checkArgument(offset >= 0, "offset[%s] must >= 0", offset);
     Preconditions.checkArgument(limit >= 0, "limit[%s] must >= 0", limit);
 
+    // 构建表标识符
     TableIdentifier tableIdentifier = TableIdentifier.of(catalog, db, table);
+    // 如果status不为空，转换为ProcessStatus枚举
     ProcessStatus processStatus =
-        StringUtils.isBlank(status) ? null : ProcessStatus.valueOf(status);
+            StringUtils.isBlank(status) ? null : ProcessStatus.valueOf(status);
+    System.out.println("processStatus" + status);
+    System.out.println(processStatus);
+    System.out.println(status);
+    System.out.println(processStatus==null);
 
     // 获取优化进程信息
     Pair<List<OptimizingProcessInfo>, Integer> optimizingProcessesInfo =
-        tableDescriptor.getOptimizingProcessesInfo(
-            tableIdentifier.buildTableIdentifier(), type, processStatus, limit, offset);
+            tableDescriptor.getOptimizingProcessesInfo(
+                    tableIdentifier.buildTableIdentifier(), type, processStatus, limit, offset);
     List<OptimizingProcessInfo> result = optimizingProcessesInfo.getLeft();
     int total = optimizingProcessesInfo.getRight();
 
+    // 返回分页结果
     ctx.json(OkResponse.of(PageResult.of(result, total)));
-  }
+}
 
   /**
    * 获取表的优化类型
@@ -394,26 +411,34 @@ public class TableController {
   /**
    * 获取优化进程的任务列表
    *
-   * @param ctx HTTP请求上下文
+   * @param ctx HTTP请求上下文，包含请求参数和响应方法
    */
   public void getOptimizingProcessTasks(Context ctx) {
+    // 从路径参数中获取catalog、db、table和processId
     String catalog = ctx.pathParam("catalog");
     String db = ctx.pathParam("db");
     String table = ctx.pathParam("table");
     String processId = ctx.pathParam("processId");
+
+    // 从查询参数中获取分页信息，默认第一页，每页20条
     Integer page = ctx.queryParamAsClass("page", Integer.class).getOrDefault(1);
     Integer pageSize = ctx.queryParamAsClass("pageSize", Integer.class).getOrDefault(20);
 
+    // 计算分页偏移量和限制数量
     int offset = (page - 1) * pageSize;
     int limit = pageSize;
+    // 校验分页参数合法性
     Preconditions.checkArgument(offset >= 0, "offset[%s] must >= 0", offset);
     Preconditions.checkArgument(limit >= 0, "limit[%s] must >= 0", limit);
 
+    // 构建表标识符
     TableIdentifier tableIdentifier = TableIdentifier.of(catalog, db, table);
+    // 获取优化进程的任务信息列表
     List<OptimizingTaskInfo> optimizingTaskInfos =
         tableDescriptor.getOptimizingProcessTaskInfos(
             tableIdentifier.buildTableIdentifier(), processId);
 
+    // 构建分页结果并返回
     PageResult<OptimizingTaskInfo> pageResult = PageResult.of(optimizingTaskInfos, offset, limit);
     ctx.json(OkResponse.of(pageResult));
   }

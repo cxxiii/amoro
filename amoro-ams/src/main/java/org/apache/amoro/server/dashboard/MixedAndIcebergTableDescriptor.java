@@ -507,13 +507,25 @@ public class MixedAndIcebergTableDescriptor extends PersistentBase
   }
 
   @Override
-  public Pair<List<OptimizingProcessInfo>, Integer> getOptimizingProcessesInfo(
+/**
+ * 获取优化进程信息列表（分页查询）
+ *
+ * @param amoroTable 表对象
+ * @param type 优化类型
+ * @param status 进程状态
+ * @param limit 每页数量
+ * @param offset 偏移量
+ * @return Pair对象，包含优化进程信息列表和总数
+ */
+public Pair<List<OptimizingProcessInfo>, Integer> getOptimizingProcessesInfo(
       AmoroTable<?> amoroTable, String type, ProcessStatus status, int limit, int offset) {
     TableIdentifier tableIdentifier = amoroTable.id();
     int total = 0;
-    // page helper is 1-based
+    // page helper是1-based的，所以需要计算页码
     int pageNumber = (offset / limit) + 1;
     List<OptimizingProcessMeta> processMetaList = Collections.emptyList();
+
+    // 使用PageHelper进行分页查询
     try (Page<?> ignored = PageHelper.startPage(pageNumber, limit, true)) {
       processMetaList =
           getAs(
@@ -533,19 +545,26 @@ public class MixedAndIcebergTableDescriptor extends PersistentBase
           pageNumber,
           limit,
           offset);
+      // 如果没有查询到数据，直接返回空列表
       if (pageInfo.getSize() == 0) {
         return Pair.of(Collections.emptyList(), 0);
       }
     }
+
+    // 收集所有进程ID
     List<Long> processIds =
         processMetaList.stream()
             .map(OptimizingProcessMeta::getProcessId)
             .collect(Collectors.toList());
+
+    // 批量查询每个进程对应的优化任务
     Map<Long, List<OptimizingTaskMeta>> optimizingTasks =
         getAs(OptimizingMapper.class, mapper -> mapper.selectOptimizeTaskMetas(processIds)).stream()
             .collect(Collectors.groupingBy(OptimizingTaskMeta::getProcessId));
 
     LOG.info("Get {} optimizing tasks. ", optimizingTasks.size());
+
+    // 构建返回结果：将进程元数据转换为进程信息对象
     return Pair.of(
         processMetaList.stream()
             .map(p -> buildOptimizingProcessInfo(p, optimizingTasks.get(p.getProcessId())))
@@ -828,13 +847,21 @@ public class MixedAndIcebergTableDescriptor extends PersistentBase
         type);
   }
 
-  private static OptimizingProcessInfo buildOptimizingProcessInfo(
+/**
+ * 构建优化过程信息对象
+ *
+ * @param meta 优化过程元数据
+ * @param optimizingTaskStats 优化任务元数据列表
+ * @return OptimizingProcessInfo 对象，如果meta为null则返回null
+ */
+private static OptimizingProcessInfo buildOptimizingProcessInfo(
       OptimizingProcessMeta meta, List<OptimizingTaskMeta> optimizingTaskStats) {
     if (meta == null) {
       return null;
     }
     OptimizingProcessInfo result = new OptimizingProcessInfo();
 
+    // 统计任务状态
     if (optimizingTaskStats != null) {
       int successTasks = 0;
       int runningTasks = 0;
@@ -850,26 +877,32 @@ public class MixedAndIcebergTableDescriptor extends PersistentBase
             break;
         }
       }
+      // 设置任务统计信息
       result.setTotalTasks(optimizingTaskStats.size());
       result.setSuccessTasks(successTasks);
       result.setRunningTasks(runningTasks);
     }
+
+    // 设置文件统计信息
     MetricsSummary summary = meta.getSummary();
     if (summary != null) {
       result.setInputFiles(summary.getInputFilesStatistics());
       result.setOutputFiles(summary.getOutputFilesStatistics());
     }
 
+    // 设置表基本信息
     result.setTableId(meta.getTableId());
     result.setCatalogName(meta.getCatalogName());
     result.setDbName(meta.getDbName());
     result.setTableName(meta.getTableName());
 
+    // 设置优化过程信息
     result.setProcessId(String.valueOf(meta.getProcessId()));
     result.setStartTime(meta.getPlanTime());
     result.setOptimizingType(meta.getOptimizingType().name());
     result.setStatus(ProcessStatus.valueOf(meta.getStatus().name()));
     result.setFailReason(meta.getFailReason());
+    // 计算持续时间：如果结束时间>0则使用结束时间，否则使用当前时间
     result.setDuration(
         meta.getEndTime() > 0
             ? meta.getEndTime() - meta.getPlanTime()

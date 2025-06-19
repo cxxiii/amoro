@@ -44,7 +44,7 @@ public class RewriteStageTask
   }
 
   @Override
-  protected void calculateSummary() {
+  public void calculateSummary() {
     if (input != null) {
       summary = new MetricsSummary(input);
       if (output != null) {
