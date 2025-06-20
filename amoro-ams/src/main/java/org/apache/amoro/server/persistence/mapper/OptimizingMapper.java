@@ -25,6 +25,7 @@ import org.apache.amoro.optimizing.RewriteFilesInput;
 import org.apache.amoro.optimizing.RewriteStageTask;
 import org.apache.amoro.process.ProcessStatus;
 import org.apache.amoro.process.StagedTaskDescriptor;
+import org.apache.amoro.server.dashboard.model.OverviewTableOptimizingSummary;
 import org.apache.amoro.server.optimizing.OptimizingProcessMeta;
 import org.apache.amoro.server.optimizing.OptimizingTaskMeta;
 import org.apache.amoro.server.optimizing.TaskRuntime;
@@ -179,6 +180,35 @@ public interface OptimizingMapper {
       @Param("dbName") String dbName,
       @Param("tableName") String tableName,
       @Param("processId") String processId);
+
+  @Select(
+      "<script>"
+          + "SELECT count(1) as optimizingProcessCount,"
+          + "SUM(CAST(JSON_EXTRACT(summary, '$.equalityDeleteSize') AS UNSIGNED)+CAST(JSON_EXTRACT(summary, '$.rewriteDataSize') AS UNSIGNED)+"
+          + "GREATEST(CAST(JSON_EXTRACT(summary, '$.positionDeleteSize') AS UNSIGNED), CAST(JSON_EXTRACT(summary, '$.positionalDeleteSize') AS UNSIGNED))+"
+          + "CAST(JSON_EXTRACT(summary, '$.rewritePosDataSize') AS UNSIGNED)) as optimizingInputDataSize,"
+          + "SUM(CAST(JSON_EXTRACT(summary, '$.eqDeleteFileCnt') AS UNSIGNED)+CAST(JSON_EXTRACT(summary, '$.posDeleteFileCnt') AS UNSIGNED)+"
+          + "GREATEST(CAST(JSON_EXTRACT(summary, '$.reRowDeletedDataFileCnt') AS UNSIGNED), CAST(JSON_EXTRACT(summary, '$.rewritePosDataFileCnt') AS UNSIGNED))+"
+          + "CAST(JSON_EXTRACT(summary, '$.rewriteDataFileCnt') AS UNSIGNED)) as optimizingInputFileCount,"
+          + "SUM(CAST(JSON_EXTRACT(summary, '$.newFileSize') AS UNSIGNED)) as optimizingOutputDataSize, "
+          + "SUM(CAST(JSON_EXTRACT(summary, '$.newFileCnt') AS UNSIGNED)) as optimizingOutputFileCount "
+          + "FROM table_optimizing_process"
+          + " WHERE catalog_name = #{catalogName} AND db_name = #{dbName} AND table_name = #{tableName}"
+          + " <if test='optimizingStatus != null'> AND status = #{optimizingStatus}</if>"
+          + " ORDER BY process_id desc"
+          + "</script>")
+  @Results({
+    @Result(property = "optimizingProcessCount", column = "optimizingProcessCount"),
+    @Result(property = "optimizingInputDataSize", column = "optimizingInputDataSize"),
+    @Result(property = "optimizingInputFileCount", column = "optimizingInputFileCount"),
+    @Result(property = "optimizingOutputDataSize", column = "optimizingOutputDataSize"),
+    @Result(property = "optimizingOutputFileCount", column = "optimizingOutputFileCount")
+  })
+  OverviewTableOptimizingSummary selectProcessesMetricsSummary(
+      @Param("catalogName") String catalogName,
+      @Param("dbName") String dbName,
+      @Param("tableName") String tableName,
+      @Param("optimizingStatus") ProcessStatus optimizingStatus);
 
   @Select(
       "SELECT a.process_id, a.table_id, a.catalog_name, a.db_name, a.table_name, a.target_snapshot_id,"

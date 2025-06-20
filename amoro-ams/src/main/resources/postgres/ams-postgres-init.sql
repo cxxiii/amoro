@@ -62,6 +62,7 @@ CREATE TABLE optimizer
 CREATE INDEX optimizer_resource_group_index ON optimizer (group_name);
 
 COMMENT ON TABLE optimizer IS 'Optimizer metadata';
+COMMENT ON COLUMN optimizer.token IS 'Optimizer token';
 COMMENT ON COLUMN optimizer.resource_id IS 'Optimizer instance ID';
 COMMENT ON COLUMN optimizer.group_name IS 'Group/queue name';
 COMMENT ON COLUMN optimizer.container_name IS 'Container name';

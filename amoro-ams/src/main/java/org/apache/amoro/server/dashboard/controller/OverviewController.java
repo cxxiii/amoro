@@ -20,10 +20,7 @@ package org.apache.amoro.server.dashboard.controller;
 
 import io.javalin.http.Context;
 import org.apache.amoro.server.dashboard.OverviewManager;
-import org.apache.amoro.server.dashboard.model.OverviewDataSizeItem;
-import org.apache.amoro.server.dashboard.model.OverviewResourceUsageItem;
-import org.apache.amoro.server.dashboard.model.OverviewSummary;
-import org.apache.amoro.server.dashboard.model.OverviewTopTableItem;
+import org.apache.amoro.server.dashboard.model.*;
 import org.apache.amoro.server.dashboard.response.OkResponse;
 import org.apache.amoro.shade.guava32.com.google.common.base.Preconditions;
 import org.apache.amoro.shade.guava32.com.google.common.collect.ImmutableMap;
@@ -105,6 +102,43 @@ public class OverviewController {
                 : comparator.reversed().thenComparing(OverviewTopTableItem::getTableName))
         .limit(limit)
         .collect(Collectors.toList());
+  }
+
+  public void getCatalogStatistics(Context ctx) {
+    String startTime = ctx.queryParam("startTime");
+    String catalogName = ctx.queryParam("catalogName");
+
+    Preconditions.checkArgument(
+        StringUtils.isNotBlank(catalogName), "catalogName can not be empty");
+    Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
+
+    OverviewCatalogOptimizingSummary catalogOptimizingstatistics =
+        manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
+    OverviewSummary catalogOverviewSummary = manager.getCatalogOverviewSummary(catalogName);
+    int totalCatalog = catalogOverviewSummary.getCatalogCnt();
+    int totalTableCount = catalogOverviewSummary.getTableCnt();
+    long totalDataSize = catalogOverviewSummary.getTableTotalSize();
+    int totalCpu = catalogOverviewSummary.getTotalCpu();
+    long totalMemory = catalogOverviewSummary.getTotalMemory();
+    long optimizingProcessCount = catalogOptimizingstatistics.getOptimizingProcessCount();
+    long optimizingInputFileCount = catalogOptimizingstatistics.getOptimizingInputFileCount();
+    long optimizingOutputFileCount = catalogOptimizingstatistics.getOptimizingInputDataSize();
+    long inputFileAverageSize = catalogOptimizingstatistics.getInputFileAverageSize();
+    long outputFileAverageSize = catalogOptimizingstatistics.getOutputFileAverageSize();
+
+    OverviewCatalogStatistics overviewCatalogStatistics =
+        new OverviewCatalogStatistics(
+            totalCatalog,
+            totalTableCount,
+            totalDataSize,
+            totalCpu,
+            totalMemory,
+            optimizingProcessCount,
+            optimizingInputFileCount,
+            optimizingOutputFileCount,
+            inputFileAverageSize,
+            outputFileAverageSize);
+    ctx.json(OkResponse.of(overviewCatalogStatistics));
   }
 
   public void getSummary(Context ctx) {

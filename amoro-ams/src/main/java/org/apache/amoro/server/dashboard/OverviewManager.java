@@ -19,31 +19,28 @@
 package org.apache.amoro.server.dashboard;
 
 import org.apache.amoro.config.Configurations;
+import org.apache.amoro.process.ProcessStatus;
 import org.apache.amoro.server.AmoroManagementConf;
-import org.apache.amoro.server.dashboard.model.OverviewDataSizeItem;
-import org.apache.amoro.server.dashboard.model.OverviewResourceUsageItem;
-import org.apache.amoro.server.dashboard.model.OverviewTopTableItem;
+import org.apache.amoro.server.dashboard.model.*;
 import org.apache.amoro.server.optimizing.OptimizingStatus;
 import org.apache.amoro.server.persistence.PersistentBase;
 import org.apache.amoro.server.persistence.TableRuntimeMeta;
 import org.apache.amoro.server.persistence.mapper.CatalogMetaMapper;
 import org.apache.amoro.server.persistence.mapper.OptimizerMapper;
+import org.apache.amoro.server.persistence.mapper.OptimizingMapper;
 import org.apache.amoro.server.persistence.mapper.TableMetaMapper;
 import org.apache.amoro.server.resource.OptimizerInstance;
 import org.apache.amoro.shade.guava32.com.google.common.annotations.VisibleForTesting;
 import org.apache.amoro.shade.guava32.com.google.common.collect.ImmutableList;
 import org.apache.amoro.shade.guava32.com.google.common.collect.Maps;
+import org.apache.amoro.shade.guava32.com.google.common.collect.Sets;
 import org.apache.amoro.shade.guava32.com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
@@ -60,6 +57,7 @@ public class OverviewManager extends PersistentBase {
   public static final String STATUS_EXECUTING = "Executing";
   public static final String STATUS_IDLE = "Idle";
   public static final String STATUS_COMMITTING = "Committing";
+  public static final int catalogRefreshInterval = 20;
 
   private static final Logger LOG = LoggerFactory.getLogger(OverviewManager.class);
   private final List<OverviewTopTableItem> allTopTableItem = new ArrayList<>();
@@ -68,11 +66,15 @@ public class OverviewManager extends PersistentBase {
       new ConcurrentLinkedDeque<>();
   private final ConcurrentLinkedDeque<OverviewDataSizeItem> dataSizeHistory =
       new ConcurrentLinkedDeque<>();
+  private final Map<String, ConcurrentLinkedDeque<OverviewCatalogOptimizingSummary>>
+      catalogOptimizingMap = new ConcurrentHashMap<>();
   private final AtomicInteger totalCatalog = new AtomicInteger();
   private final AtomicLong totalDataSize = new AtomicLong();
   private final AtomicInteger totalTableCount = new AtomicInteger();
   private final AtomicInteger totalCpu = new AtomicInteger();
   private final AtomicLong totalMemory = new AtomicLong();
+  private final AtomicLong refreshCount = new AtomicLong();
+  private final Map<String, OverviewSummary> catalogSummaryMap = new ConcurrentHashMap<>();
 
   private final int maxRecordCount;
 
@@ -92,6 +94,7 @@ public class OverviewManager extends PersistentBase {
                 .setDaemon(true)
                 .build());
     resetStatusMap();
+    refreshCount.set(-1);
 
     if (refreshInterval.toMillis() > 0) {
       overviewUpdaterScheduler.scheduleAtFixedRate(
@@ -101,6 +104,10 @@ public class OverviewManager extends PersistentBase {
 
   public List<OverviewTopTableItem> getAllTopTableItem() {
     return ImmutableList.copyOf(allTopTableItem);
+  }
+
+  public OverviewSummary getCatalogOverviewSummary(String catalogName) {
+    return catalogSummaryMap.get(catalogName);
   }
 
   public int getTotalCatalog() {
@@ -135,6 +142,32 @@ public class OverviewManager extends PersistentBase {
         .collect(Collectors.toList());
   }
 
+  public OverviewCatalogOptimizingSummary getCatalogOptimizing(long startTime, String catalogName) {
+    ConcurrentLinkedDeque<OverviewCatalogOptimizingSummary> catalogOptimizingSummary =
+        catalogOptimizingMap.get(catalogName);
+
+    if (catalogOptimizingSummary == null) {
+      return new OverviewCatalogOptimizingSummary();
+    }
+    OverviewCatalogOptimizingSummary latest = catalogOptimizingSummary.peekLast();
+    OverviewCatalogOptimizingSummary closestAfterTime =
+        catalogOptimizingSummary.stream()
+            .filter(item -> item.getTs() <= startTime)
+            .max(Comparator.comparingLong(OverviewCatalogOptimizingSummary::getTs))
+            .orElse(null);
+
+    if (closestAfterTime != null) {
+      return new OverviewCatalogOptimizingSummary(
+          latest.getOptimizingProcessCount() - closestAfterTime.getOptimizingProcessCount(),
+          latest.getOptimizingInputFileCount() - closestAfterTime.getOptimizingInputFileCount(),
+          latest.getOptimizingInputDataSize() - closestAfterTime.getOptimizingInputDataSize(),
+          closestAfterTime.getInputFileAverageSize(),
+          latest.getOutputFileAverageSize());
+    } else {
+      return latest;
+    }
+  }
+
   public Map<String, Long> getOptimizingStatus() {
     return optimizingStatusCountMap;
   }
@@ -144,8 +177,14 @@ public class OverviewManager extends PersistentBase {
     long start = System.currentTimeMillis();
     LOG.info("Refreshing overview cache");
     try {
+      refreshCount.incrementAndGet();
       refreshTableCache(start);
       refreshResourceUsage(start);
+
+      if (refreshCount.get() > catalogRefreshInterval || refreshCount.get() == 0) {
+        refreshCatalogCache(start);
+        refreshCount.set(0);
+      }
 
     } catch (Exception e) {
       LOG.error("Refreshed overview cache failed", e);
@@ -157,36 +196,122 @@ public class OverviewManager extends PersistentBase {
 
   private void refreshTableCache(long ts) {
     int totalCatalogs = getAs(CatalogMetaMapper.class, CatalogMetaMapper::selectCatalogCount);
-
-    List<TableRuntimeMeta> metas =
-        getAs(TableMetaMapper.class, TableMetaMapper::selectTableRuntimeMetas);
-    AtomicLong totalDataSize = new AtomicLong();
-    AtomicInteger totalFileCounts = new AtomicInteger();
-    Map<String, OverviewTopTableItem> topTableItemMap = Maps.newHashMap();
+    List<String> catalogList = getAs(CatalogMetaMapper.class, CatalogMetaMapper::getCatalogNames);
     Map<String, Long> optimizingStatusMap = Maps.newHashMap();
-    for (TableRuntimeMeta meta : metas) {
-      Optional<OverviewTopTableItem> optItem = toTopTableItem(meta);
-      optItem.ifPresent(
-          tableItem -> {
-            topTableItemMap.put(tableItem.getTableName(), tableItem);
-            totalDataSize.addAndGet(tableItem.getTableSize());
-            totalFileCounts.addAndGet(tableItem.getFileCount());
-          });
-      String status = statusToMetricString(meta.getTableStatus());
-      if (StringUtils.isNotEmpty(status)) {
-        optimizingStatusMap.putIfAbsent(status, 0L);
-        optimizingStatusMap.computeIfPresent(status, (k, v) -> v + 1);
+
+    for (String catalogName : catalogList) {
+      List<TableRuntimeMeta> metas =
+          getAs(TableMetaMapper.class, mapper -> mapper.getCatalogRuntimeMeta(catalogName));
+      AtomicLong totalDataSize = new AtomicLong();
+      AtomicInteger totalFileCounts = new AtomicInteger();
+      Map<String, OverviewTopTableItem> topTableItemMap = Maps.newHashMap();
+      Set<String> optimizerGroupSet = Sets.newHashSet();
+
+      for (TableRuntimeMeta meta : metas) {
+        optimizerGroupSet.add(meta.getOptimizerGroup());
+        Optional<OverviewTopTableItem> optItem = toTopTableItem(meta);
+        optItem.ifPresent(
+            tableItem -> {
+              topTableItemMap.put(tableItem.getTableName(), tableItem);
+              totalDataSize.addAndGet(tableItem.getTableSize());
+              totalFileCounts.addAndGet(tableItem.getFileCount());
+            });
+        String status = statusToMetricString(meta.getTableStatus());
+        if (StringUtils.isNotEmpty(status)) {
+          optimizingStatusMap.putIfAbsent(status, 0L);
+          optimizingStatusMap.computeIfPresent(status, (k, v) -> v + 1);
+        }
+      }
+      catalogSummaryMap.putIfAbsent(catalogName, new OverviewSummary());
+      catalogSummaryMap.get(catalogName).setCatalogCnt(1);
+      catalogSummaryMap.get(catalogName).setTableCnt(topTableItemMap.size());
+      catalogSummaryMap.get(catalogName).setTableTotalSize(totalDataSize.get());
+      this.totalTableCount.addAndGet(topTableItemMap.size());
+      this.totalDataSize.addAndGet(totalDataSize.get());
+      this.allTopTableItem.clear();
+      this.allTopTableItem.addAll(topTableItemMap.values());
+
+      for (String optimizerGroup : optimizerGroupSet) {
+        List<OptimizerInstance> instances =
+            getAs(OptimizerMapper.class, mapper -> mapper.selectGroupName(optimizerGroup));
+        AtomicInteger cpuCount = new AtomicInteger();
+        AtomicLong memoryBytes = new AtomicLong();
+        for (OptimizerInstance instance : instances) {
+          cpuCount.addAndGet(instance.getThreadCount());
+          memoryBytes.addAndGet(instance.getMemoryMb() * 1024L * 1024L);
+        }
+        catalogSummaryMap.get(catalogName).setTotalCpu(cpuCount.get());
+        catalogSummaryMap.get(catalogName).setTotalMemory(memoryBytes.get());
       }
     }
 
     this.totalCatalog.set(totalCatalogs);
-    this.totalTableCount.set(topTableItemMap.size());
-    this.totalDataSize.set(totalDataSize.get());
-    this.allTopTableItem.clear();
-    this.allTopTableItem.addAll(topTableItemMap.values());
     addAndCheck(new OverviewDataSizeItem(ts, this.totalDataSize.get()));
     resetStatusMap();
     this.optimizingStatusCountMap.putAll(optimizingStatusMap);
+  }
+
+  private void refreshCatalogCache(long ts) {
+    List<String> catalogList = getAs(CatalogMetaMapper.class, CatalogMetaMapper::getCatalogNames);
+    AtomicLong totalMergeTaskCnt = new AtomicLong();
+    AtomicLong totalInputDataSize = new AtomicLong();
+    AtomicLong totalOutputDataSize = new AtomicLong();
+    AtomicLong totalInputFileCnt = new AtomicLong();
+    AtomicLong totalOutputFileCnt = new AtomicLong();
+
+    for (String catalogName : catalogList) {
+      totalInputFileCnt.set(0);
+      totalOutputFileCnt.set(0);
+      totalMergeTaskCnt.set(0);
+      totalInputDataSize.set(0);
+      totalOutputDataSize.set(0);
+      catalogOptimizingMap.putIfAbsent(catalogName, new ConcurrentLinkedDeque<>());
+      List<String> tableList =
+          getAs(TableMetaMapper.class, mapper -> mapper.getTableNames(catalogName));
+      getAs(TableMetaMapper.class, mapper -> mapper.getTableNames(catalogName));
+      for (String tableName : tableList) {
+        OverviewTableOptimizingSummary tableOptimizingSummary =
+            obtainCatalogOptimizingInfo(tableName, ts);
+        totalMergeTaskCnt.addAndGet(tableOptimizingSummary.getOptimizingProcessCount());
+        totalInputDataSize.addAndGet(tableOptimizingSummary.getOptimizingInputDataSize());
+        totalOutputDataSize.addAndGet(tableOptimizingSummary.getOptimizingOutputDataSize());
+        totalInputFileCnt.addAndGet(tableOptimizingSummary.getOptimizingInputFileCount());
+        totalOutputFileCnt.addAndGet(tableOptimizingSummary.getOptimizingOutputFileCount());
+      }
+      long inputAverageFileSize =
+          totalInputFileCnt.get() == 0 ? 0 : totalInputDataSize.get() / totalInputFileCnt.get();
+      long outputAverageFileSize =
+          totalOutputFileCnt.get() == 0 ? 0 : totalOutputDataSize.get() / totalOutputFileCnt.get();
+      OverviewCatalogOptimizingSummary catalogOptimizingSummary =
+          new OverviewCatalogOptimizingSummary(
+              ts,
+              totalMergeTaskCnt.get(),
+              totalInputFileCnt.get(),
+              totalInputDataSize.get(),
+              inputAverageFileSize,
+              outputAverageFileSize);
+      addAndCheck(catalogOptimizingSummary, catalogName);
+    }
+  }
+
+  private OverviewTableOptimizingSummary obtainCatalogOptimizingInfo(
+      String fullTableName, long ts) {
+    String catalog = fullTableName.split("\\.")[0];
+    String db = fullTableName.split("\\.")[1];
+    String table = fullTableName.split("\\.")[2];
+
+    ProcessStatus status = ProcessStatus.SUCCESS;
+    OverviewTableOptimizingSummary tableOptimizing =
+        getAs(
+            OptimizingMapper.class,
+            mapper -> mapper.selectProcessesMetricsSummary(catalog, db, table, status));
+    return new OverviewTableOptimizingSummary(
+        ts,
+        tableOptimizing.getOptimizingProcessCount(),
+        tableOptimizing.getOptimizingInputFileCount(),
+        tableOptimizing.getOptimizingInputDataSize(),
+        tableOptimizing.getOptimizingOutputFileCount(),
+        tableOptimizing.getOptimizingOutputDataSize());
   }
 
   private Optional<OverviewTopTableItem> toTopTableItem(TableRuntimeMeta meta) {
@@ -256,6 +381,12 @@ public class OverviewManager extends PersistentBase {
   private void addAndCheck(OverviewResourceUsageItem resourceUsageItem) {
     resourceUsageHistory.add(resourceUsageItem);
     checkSize(resourceUsageHistory);
+  }
+
+  private void addAndCheck(
+      OverviewCatalogOptimizingSummary catalogOptimizingSummary, String catalogName) {
+    catalogOptimizingMap.get(catalogName).add(catalogOptimizingSummary);
+    checkSize(catalogOptimizingMap.get(catalogName));
   }
 
   private <T> void checkSize(Deque<T> deque) {

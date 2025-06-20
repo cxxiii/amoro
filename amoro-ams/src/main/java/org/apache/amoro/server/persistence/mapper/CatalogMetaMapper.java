@@ -54,6 +54,9 @@ public interface CatalogMetaMapper {
   })
   List<CatalogMeta> getCatalogs();
 
+  @Select("SELECT catalog_name FROM " + TABLE_NAME)
+  List<String> getCatalogNames();
+
   @Select(
       "SELECT catalog_name, catalog_metastore, storage_configs, auth_configs, catalog_properties FROM "
           + TABLE_NAME

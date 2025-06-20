@@ -374,6 +374,7 @@ public class DashboardServer {
             get("/optimizing", overviewController::getOptimizingStatus);
             get("/dataSize", overviewController::getDataSizeHistory);
             get("/top", overviewController::getTopTables);
+            get("/catalog", overviewController::getCatalogStatistics);
           });
     };
   }
@@ -469,6 +470,7 @@ public class DashboardServer {
       if (apiKey == null || signature == null) {
         throw new SignatureCheckException("API key or signature is missing");
       }
+
       APITokenManager apiTokenService = new APITokenManager();
       String secret = apiTokenService.getSecretByKey(apiKey);
 

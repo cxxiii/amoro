@@ -499,6 +499,37 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/OverviewTopTableItem'
+  /api/ams/v1/overview/catalog:
+    get:
+      tags:
+        - Overview
+      summary: Get overview summary
+      description: Get an overview summary
+      parameters:
+        - name: startTime
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The start time for the history
+        - name: catalogName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The catalog name of the optimizing file statistics
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      result:
+                        $ref: '#/components/schemas/OverviewCatalogStatistics'
   /api/ams/v1/overview/summary:
     get:
       tags:
@@ -889,6 +920,29 @@ components:
         fileCount:
           type: integer
         healthScore:
+          type: integer
+    OverviewCatalogStatistics:
+      type: object
+      properties:
+        totalCatalog:
+          type: integer
+        totalTableCount:
+          type: integer
+        totalDataSize:
+          type: integer
+        totalCpu:
+          type: integer
+        totalMemory:
+          type: integer
+        optimizingProcessCount:
+          type: integer
+        optimizingInputFileCount:
+          type: integer
+        optimizingInputDataSize:
+          type: integer
+        inputFileAverageSize:
+          type: integer
+        outputFileAverageSize:
           type: integer
     OverviewSummary:
       type: object
