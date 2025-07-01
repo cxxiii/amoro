@@ -30,8 +30,8 @@ public class OverviewCatalogStatistics {
   private long optimizingProcessCount;
   private long optimizingInputFileCount;
   private long optimizingInputDataSize;
-  private long inputFileAverageSize;
-  private long outputFileAverageSize;
+  private long optimizingOutputFileCount;
+  private long optimizingOutputDataSize;
 
   public OverviewCatalogStatistics() {}
 
@@ -44,8 +44,8 @@ public class OverviewCatalogStatistics {
       long optimizingProcessCount,
       long optimizingInputFileCount,
       long optimizingInputDataSize,
-      long inputFileAverageSize,
-      long outputFileAverageSize) {
+      long optimizingOutputFileCount,
+      long optimizingOutputDataSize) {
     this.catalogCnt = catalogCnt;
     this.tableCnt = tableCnt;
     this.tableTotalSize = tableTotalSize;
@@ -54,8 +54,8 @@ public class OverviewCatalogStatistics {
     this.optimizingProcessCount = optimizingProcessCount;
     this.optimizingInputFileCount = optimizingInputFileCount;
     this.optimizingInputDataSize = optimizingInputDataSize;
-    this.inputFileAverageSize = inputFileAverageSize;
-    this.outputFileAverageSize = outputFileAverageSize;
+    this.optimizingOutputFileCount = optimizingOutputFileCount;
+    this.optimizingOutputDataSize = optimizingOutputDataSize;
   }
 
   public long getOptimizingProcessCount() {
@@ -82,20 +82,20 @@ public class OverviewCatalogStatistics {
     this.optimizingInputDataSize = optimizingInputDataSize;
   }
 
-  public long getInputFileAverageSize() {
-    return inputFileAverageSize;
+  public long getOptimizingOutputFileCount() {
+    return optimizingOutputFileCount;
   }
 
-  public void setInputFileAverageSize(long inputFileAverageSize) {
-    this.inputFileAverageSize = inputFileAverageSize;
+  public void setOptimizingOutputFileCount(long optimizingOutputFileCount) {
+    this.optimizingOutputFileCount = optimizingOutputFileCount;
   }
 
-  public long getOutputFileAverageSize() {
-    return outputFileAverageSize;
+  public long getOptimizingOutputDataSize() {
+    return optimizingOutputDataSize;
   }
 
-  public void setOutputFileAverageSize(long outputFileAverageSize) {
-    this.outputFileAverageSize = outputFileAverageSize;
+  public void setOptimizingOutputDataSize(long optimizingOutputDataSize) {
+    this.optimizingOutputDataSize = optimizingOutputDataSize;
   }
 
   public int getCatalogCnt() {
@@ -149,8 +149,8 @@ public class OverviewCatalogStatistics {
         .add("optimizingProcessCount", optimizingProcessCount)
         .add("optimizingInputFileCount", optimizingInputFileCount)
         .add("optimizingInputDataSize", optimizingInputDataSize)
-        .add("inputFileAverageSize", inputFileAverageSize)
-        .add("outputFileAverageSize", outputFileAverageSize)
+        .add("inputFileAverageSize", optimizingOutputFileCount)
+        .add("outputFileAverageSize", optimizingOutputDataSize)
         .toString();
   }
 }

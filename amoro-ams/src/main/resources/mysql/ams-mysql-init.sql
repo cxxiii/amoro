@@ -15,14 +15,14 @@
 
 CREATE TABLE `catalog_metadata`
 (
-    `catalog_id`             int(11) NOT NULL AUTO_INCREMENT COMMENT 'catalog id',
+    `catalog_id`             int(11) NOT NULL AUTO_INCREMENT,
     `catalog_name`           varchar(64) NOT NULL COMMENT 'catalog name',
     `catalog_metastore`      varchar(64) NOT NULL COMMENT 'catalog type like hms/ams/hadoop/custom',
     `storage_configs`        mediumtext COMMENT 'base64 code of storage configs',
     `auth_configs`           mediumtext COMMENT 'base64 code of auth configs',
     `catalog_properties`     mediumtext COMMENT 'catalog properties',
-    `database_count`         int(11) NOT NULL default 0 COMMENT 'database count',
-    `table_count`            int(11) NOT NULL default 0 COMMENT 'table count',
+    `database_count`         int(11) NOT NULL default 0,
+    `table_count`            int(11) NOT NULL default 0,
     PRIMARY KEY (`catalog_id`),
     UNIQUE KEY `catalog_name_index` (`catalog_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT 'catalog metadata';
@@ -31,21 +31,21 @@ CREATE TABLE `database_metadata`
 (
     `catalog_name`           varchar(64) NOT NULL COMMENT 'catalog name',
     `db_name`                varchar(128) NOT NULL COMMENT 'database name',
-    `table_count`            int(11) NOT NULL default 0 COMMENT 'table count',
+    `table_count`            int(11) NOT NULL default 0,
     PRIMARY KEY (`catalog_name`, `db_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT 'database metadata';
 
 
 CREATE TABLE `optimizer`
 (
-    `token`                      varchar(50) NOT NULL COMMENT 'optimizer token',
-    `resource_id`                varchar(100) DEFAULT NULL COMMENT 'optimizer instance id',
+    `token`                      varchar(50) NOT NULL,
+    `resource_id`                varchar(100) DEFAULT NULL  COMMENT 'optimizer instance id',
     `group_name`                 varchar(50) DEFAULT NULL COMMENT 'group/queue name',
-    `container_name`             varchar(100) DEFAULT NULL COMMENT 'container name',
+    `container_name`             varchar(100) DEFAULT NULL  COMMENT 'container name',
     `start_time`                 timestamp not null default CURRENT_TIMESTAMP COMMENT 'optimizer start time',
     `touch_time`                 timestamp not null default CURRENT_TIMESTAMP COMMENT 'update time',
     `thread_count`               int(11) DEFAULT NULL COMMENT 'total number of all CPU resources',
-    `total_memory`               bigint(30) DEFAULT NULL COMMENT 'optimizer memory usage',
+    `total_memory`               bigint(30) DEFAULT NULL COMMENT 'optimizer use memory size',
     `properties`                 mediumtext COMMENT 'optimizer state info, contains like yarn application id and flink job id',
     PRIMARY KEY (`token`),
     KEY  `resource_group` (`group_name`)
@@ -58,7 +58,7 @@ CREATE TABLE `resource`
     `container_name`            varchar(100) DEFAULT NULL  COMMENT 'container name',
     `group_name`                varchar(50) DEFAULT NULL COMMENT 'queue name',
     `thread_count`              int(11) DEFAULT NULL COMMENT 'total number of all CPU resources',
-    `total_memory`              bigint(30) DEFAULT NULL COMMENT 'optimizer memory usage',
+    `total_memory`              bigint(30) DEFAULT NULL COMMENT 'optimizer use memory size',
     `start_time`                timestamp not null default CURRENT_TIMESTAMP COMMENT 'optimizer start time',
     `properties`                mediumtext COMMENT 'optimizer instance properties',
     PRIMARY KEY (`resource_id`),
@@ -111,7 +111,7 @@ CREATE TABLE `table_metadata`
 
 CREATE TABLE `table_runtime`
 (
-    `table_id`                      bigint(20) NOT NULL COMMENT 'Table id',
+    `table_id`                      bigint(20) NOT NULL,
     `catalog_name`                  varchar(64) NOT NULL COMMENT 'Catalog name',
     `db_name`                       varchar(128) NOT NULL COMMENT 'Database name',
     `table_name`                    varchar(256) NOT NULL COMMENT 'Table name',
@@ -123,13 +123,13 @@ CREATE TABLE `table_runtime`
     `last_minor_optimizing_time`    timestamp NULL DEFAULT NULL COMMENT 'Latest Minor Optimize time for all partitions',
     `last_full_optimizing_time`     timestamp NULL DEFAULT NULL COMMENT 'Latest Full Optimize time for all partitions',
     `optimizing_status_code`        int DEFAULT 700 COMMENT 'Table optimize status code: 100(FULL_OPTIMIZING), 200(MAJOR_OPTIMIZING), 300(MINOR_OPTIMIZING), 400(COMMITTING), 500(PLANING), 600(PENDING), 700(IDLE)',
-    `optimizing_status_start_time`  timestamp default CURRENT_TIMESTAMP COMMENT 'Table optimize status start time',
+    `optimizing_status_start_time`  timestamp(3) default CURRENT_TIMESTAMP(3) COMMENT 'Table optimize status start time',
     `optimizing_process_id`         bigint(20) NOT NULL COMMENT 'optimizing_procedure UUID',
-    `optimizer_group`               varchar(64) NOT NULL COMMENT  'Optimizer group',
-    `table_config`                  mediumtext COMMENT 'Table-specific configuration',
-    `optimizing_config`             mediumtext COMMENT 'Optimizing configuration',
-    `pending_input`                 mediumtext COMMENT 'Pending input data',
-    `table_summary`                 mediumtext COMMENT 'Table summary data',
+    `optimizer_group`               varchar(64) NOT NULL,
+    `table_config`                  mediumtext,
+    `optimizing_config`             mediumtext,
+    `pending_input`                 mediumtext,
+    `table_summary`                 mediumtext,
     PRIMARY KEY (`table_id`),
     UNIQUE KEY `table_index` (`catalog_name`,`db_name`,`table_name`),
     INDEX idx_optimizer_status_and_time (optimizing_status_code, optimizing_status_start_time DESC)
@@ -138,12 +138,12 @@ CREATE TABLE `table_runtime`
 CREATE TABLE `table_optimizing_process`
 (
     `process_id`                    bigint(20) NOT NULL COMMENT 'optimizing_procedure UUID',
-    `table_id`                      bigint(20) NOT NULL COMMENT 'Table id',
+    `table_id`                      bigint(20) NOT NULL,
     `catalog_name`                  varchar(64) NOT NULL COMMENT 'Catalog name',
     `db_name`                       varchar(128) NOT NULL COMMENT 'Database name',
     `table_name`                    varchar(256) NOT NULL COMMENT 'Table name',
-    `target_snapshot_id`            bigint(20) NOT NULL COMMENT 'Target snapshot id',
-    `target_change_snapshot_id`     bigint(20) NOT NULL COMMENT 'Target change snapshot id',
+    `target_snapshot_id`            bigint(20) NOT NULL,
+    `target_change_snapshot_id`     bigint(20) NOT NULL,
     `status`                        varchar(10) NOT NULL COMMENT 'Direct to TableOptimizingStatus',
     `optimizing_type`               varchar(10) NOT NULL COMMENT 'Optimize type: Major, Minor',
     `plan_time`                     timestamp DEFAULT CURRENT_TIMESTAMP COMMENT 'First plan time',
@@ -159,15 +159,15 @@ CREATE TABLE `table_optimizing_process`
 
 CREATE TABLE `task_runtime`
 (
-    `process_id`                bigint(20) NOT NULL COMMENT 'Process ID',
-    `task_id`                   int(11) NOT NULL COMMENT 'Task ID',
+    `process_id`                bigint(20) NOT NULL,
+    `task_id`                   int(11) NOT NULL,
     `retry_num`                 int(11) DEFAULT NULL COMMENT 'Retry times',
-    `table_id`                  bigint(20) NOT NULL COMMENT 'Table ID',
+    `table_id`                  bigint(20) NOT NULL,
     `partition_data`            varchar(128)  DEFAULT NULL COMMENT 'Partition data',
     `create_time`               timestamp NULL DEFAULT NULL COMMENT 'Task create time',
     `start_time`                timestamp NULL DEFAULT NULL COMMENT 'Time when task start waiting to execute',
     `end_time`                  timestamp NULL DEFAULT NULL COMMENT 'Time when task finished',
-    `cost_time`                 bigint(20) DEFAULT NULL COMMENT 'Task execution time',
+    `cost_time`                 bigint(20) DEFAULT NULL,
     `status`                    varchar(16) DEFAULT NULL  COMMENT 'Optimize Status: PLANNED, SCHEDULED, ACKED, FAILED, SUCCESS, CANCELED',
     `fail_reason`               varchar(4096) DEFAULT NULL COMMENT 'Error message after task failed',
     `optimizer_token`           varchar(50) DEFAULT NULL COMMENT 'Job type',
@@ -179,27 +179,12 @@ CREATE TABLE `task_runtime`
     KEY  `table_index` (`table_id`, `process_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT 'Optimize task basic information';
 
-CREATE TABLE `table_process_state`
-(
-    `process_id`                    bigint(20) NOT NULL COMMENT 'optimizing_procedure UUID',
-    `action`                        varchar(16) NOT NULL COMMENT 'process action',
-    `table_id`                      bigint(20) NOT NULL COMMENT 'Table ID',
-    `retry_num`                     int(11) DEFAULT NULL COMMENT 'Retry times',
-    `status`                        varchar(10) NOT NULL COMMENT 'Direct to TableOptimizingStatus',
-    `start_time`                    timestamp DEFAULT CURRENT_TIMESTAMP COMMENT 'First plan time',
-    `end_time`                      timestamp NULL DEFAULT NULL COMMENT 'finish time or failed time',
-    `fail_reason`                   varchar(4096) DEFAULT NULL COMMENT 'Error message after task failed',
-    `summary`                       mediumtext COMMENT 'state summary, usually a map',
-    PRIMARY KEY (`process_id`),
-    KEY  `table_index` (`table_id`, `plan_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT 'History of optimizing after each commit';
-
 CREATE TABLE `optimizing_task_quota`
 (
     `process_id`                bigint(20) NOT NULL COMMENT 'Optimize type: Major, Minor, FullMajor',
     `task_id`                   int(11) NOT NULL COMMENT 'Optimize task unique id',
     `retry_num`                 int(11) DEFAULT 0 COMMENT 'Retry times',
-    `table_id`                  bigint(20) NOT NULL COMMENT 'Table ID',
+    `table_id`                  bigint(20) NOT NULL,
     `start_time`                timestamp default CURRENT_TIMESTAMP COMMENT 'Time when task start waiting to execute',
     `end_time`                  timestamp default CURRENT_TIMESTAMP COMMENT 'Time when task finished',
     `fail_reason`               varchar(4096) DEFAULT NULL COMMENT 'Error message after task failed',
@@ -210,7 +195,7 @@ CREATE TABLE `optimizing_task_quota`
 
 CREATE TABLE `api_tokens`
 (
-    `id`         int(11) NOT NULL AUTO_INCREMENT COMMENT 'OpenAPI client tokens',
+    `id`         int(11) NOT NULL AUTO_INCREMENT,
     `apikey`     varchar(256) NOT NULL COMMENT 'openapi client public key',
     `secret`     varchar(256) NOT NULL COMMENT 'The key used by the client to generate the request signature',
     `apply_time` timestamp NULL DEFAULT NULL COMMENT 'apply time',
@@ -219,41 +204,41 @@ CREATE TABLE `api_tokens`
 ) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Openapi  secret';
 
 CREATE TABLE `platform_file` (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
-  `file_name` varchar(100) NOT NULL COMMENT 'file name',
-  `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
-  `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
-  `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
-  PRIMARY KEY (`id`)
+                                 `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
+                                 `file_name` varchar(100) NOT NULL COMMENT 'file name',
+                                 `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
+                                 `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
+                                 `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
+                                 PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='store files info saved in the platform';
 
 CREATE TABLE `table_blocker` (
-  `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
-  `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
-  `db_name` varchar(128) NOT NULL COMMENT 'Database name',
-  `table_name` varchar(256) NOT NULL COMMENT 'Table name',
-  `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
-  `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
-  `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
-  `properties` mediumtext COMMENT 'Blocker properties',
-  `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
-  PRIMARY KEY (`blocker_id`),
-  UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
+                                 `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
+                                 `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
+                                 `db_name` varchar(128) NOT NULL COMMENT 'Database name',
+                                 `table_name` varchar(256) NOT NULL COMMENT 'Table name',
+                                 `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
+                                 `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
+                                 `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
+                                 `properties` mediumtext COMMENT 'Blocker properties',
+                                 `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
+                                 PRIMARY KEY (`blocker_id`),
+                                 UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Table blockers' ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE `http_session` (
-    `session_id`    varchar(120) NOT NULL COMMENT 'HTTP Session ID',
-    `context_path`  varchar(60) COMMENT 'Jetty Context path',
-    `virtual_host`  varchar(60) COMMENT 'Jetty virtual host',
-    `last_node`     varchar(60) COMMENT 'Last node',
-    `access_time`   bigint(20) COMMENT 'Access time',
-    `last_access_time`  bigint(20) COMMENT 'Last access time',
-    `create_time`   bigint(20)  COMMENT 'Create time',
-    `cookie_time`   bigint(20)  COMMENT 'Cookie time',
-    `last_save_time` bigint(20) COMMENT 'Last save time',
-    `expiry_time`   bigint(20)  COMMENT 'Expiry time',
-    `max_interval`  bigint(20)  COMMENT 'Max internal',
-    `data_store`    blob        COMMENT 'Session data store',
-    PRIMARY KEY(`session_id`, `context_path`, `virtual_host`),
-    KEY `idx_session_expiry` (`expiry_time`)
+                                `session_id`    varchar(120) NOT NULL COMMENT 'HTTP Session ID',
+                                `context_path`  varchar(60) COMMENT 'Jetty Context path',
+                                `virtual_host`  varchar(60) COMMENT 'Jetty virtual host',
+                                `last_node`     varchar(60) COMMENT 'Last node',
+                                `access_time`   bigint(20) COMMENT 'Access time',
+                                `last_access_time`  bigint(20) COMMENT 'Last access time',
+                                `create_time`   bigint(20)  COMMENT 'Create time',
+                                `cookie_time`   bigint(20)  COMMENT 'Cookie time',
+                                `last_save_time` bigint(20) COMMENT 'Last save time',
+                                `expiry_time`   bigint(20)  COMMENT 'Expiry time',
+                                `max_interval`  bigint(20)  COMMENT 'Max internal',
+                                `data_store`    blob        COMMENT 'Session data store',
+                                PRIMARY KEY(`session_id`, `context_path`, `virtual_host`),
+                                KEY `idx_session_expiry` (`expiry_time`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Http session store' ROW_FORMAT=DYNAMIC;

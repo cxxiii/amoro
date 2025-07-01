@@ -106,13 +106,11 @@ public class OverviewController {
 
   public void getCatalogStatistics(Context ctx) {
     String startTime = ctx.queryParam("startTime");
-    String catalogName = ctx.queryParam("catalogName");
+    String catalogName = ctx.pathParam("catalogName");
 
-    Preconditions.checkArgument(
-        StringUtils.isNotBlank(catalogName), "catalogName can not be empty");
     Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
 
-    OverviewCatalogOptimizingSummary catalogOptimizingstatistics =
+    OverviewTableOptimizingSummary catalogOptimizingstatistics =
         manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
     OverviewSummary catalogOverviewSummary = manager.getCatalogOverviewSummary(catalogName);
     int totalCatalog = catalogOverviewSummary.getCatalogCnt();
@@ -122,9 +120,9 @@ public class OverviewController {
     long totalMemory = catalogOverviewSummary.getTotalMemory();
     long optimizingProcessCount = catalogOptimizingstatistics.getOptimizingProcessCount();
     long optimizingInputFileCount = catalogOptimizingstatistics.getOptimizingInputFileCount();
-    long optimizingOutputFileCount = catalogOptimizingstatistics.getOptimizingInputDataSize();
-    long inputFileAverageSize = catalogOptimizingstatistics.getInputFileAverageSize();
-    long outputFileAverageSize = catalogOptimizingstatistics.getOutputFileAverageSize();
+    long optimizingInputDataSize = catalogOptimizingstatistics.getOptimizingInputDataSize();
+    long optimizingOutputFileCount = catalogOptimizingstatistics.getOptimizingOutputFileCount();
+    long optimizingOutputDataSize = catalogOptimizingstatistics.getOptimizingOutputDataSize();
 
     OverviewCatalogStatistics overviewCatalogStatistics =
         new OverviewCatalogStatistics(
@@ -135,9 +133,9 @@ public class OverviewController {
             totalMemory,
             optimizingProcessCount,
             optimizingInputFileCount,
+            optimizingInputDataSize,
             optimizingOutputFileCount,
-            inputFileAverageSize,
-            outputFileAverageSize);
+            optimizingOutputDataSize);
     ctx.json(OkResponse.of(overviewCatalogStatistics));
   }
 

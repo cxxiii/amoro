@@ -499,12 +499,12 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/OverviewTopTableItem'
-  /api/ams/v1/overview/catalog:
+  /api/ams/v1/overview/summary/catalogs/{catalog}/catalogSummary:
     get:
       tags:
         - Overview
-      summary: Get overview summary
-      description: Get an overview summary
+      summary: Get catalog overview summary
+      description: Get an overview summary of a certain catalog
       parameters:
         - name: startTime
           in: query
@@ -513,7 +513,7 @@ paths:
             type: string
           description: The start time for the history
         - name: catalogName
-          in: query
+          in: path
           required: true
           schema:
             type: string
@@ -940,9 +940,9 @@ components:
           type: integer
         optimizingInputDataSize:
           type: integer
-        inputFileAverageSize:
+        optimizingOutputFileCount:
           type: integer
-        outputFileAverageSize:
+        optimizingOutputDataSize:
           type: integer
     OverviewSummary:
       type: object
