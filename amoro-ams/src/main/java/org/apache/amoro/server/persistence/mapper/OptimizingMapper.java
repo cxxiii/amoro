@@ -182,21 +182,21 @@ public interface OptimizingMapper {
       @Param("processId") String processId);
 
   @Select(
-          "<script>"
-                  + "SELECT summary "
-                  + "FROM table_optimizing_process"
-                  + " WHERE catalog_name = #{catalogName} AND db_name = #{dbName} AND table_name = #{tableName}"
-                  + " <if test='optimizingStatus != null'> AND status = #{optimizingStatus}</if>"
-                  + " AND end_time BETWEEN #{beginTime} AND #{endTime}"
-                  + " ORDER BY process_id desc"
-                  + "</script>")
+      "<script>"
+          + "SELECT summary "
+          + "FROM table_optimizing_process"
+          + " WHERE catalog_name = #{catalogName} AND db_name = #{dbName} AND table_name = #{tableName}"
+          + " <if test='optimizingStatus != null'> AND status = #{optimizingStatus}</if>"
+          + " AND end_time BETWEEN #{beginTime} AND #{endTime}"
+          + " ORDER BY process_id desc"
+          + "</script>")
   List<String> selectProcessesMetrics(
-          @Param("catalogName") String catalogName,
-          @Param("dbName") String dbName,
-          @Param("tableName") String tableName,
-          @Param("optimizingStatus") ProcessStatus optimizingStatus,
-          @Param("beginTime") Timestamp beginTime,
-          @Param("endTime") Timestamp endTime);
+      @Param("catalogName") String catalogName,
+      @Param("dbName") String dbName,
+      @Param("tableName") String tableName,
+      @Param("optimizingStatus") ProcessStatus optimizingStatus,
+      @Param("beginTime") Timestamp beginTime,
+      @Param("endTime") Timestamp endTime);
 
   @Select(
       "SELECT a.process_id, a.table_id, a.catalog_name, a.db_name, a.table_name, a.target_snapshot_id,"

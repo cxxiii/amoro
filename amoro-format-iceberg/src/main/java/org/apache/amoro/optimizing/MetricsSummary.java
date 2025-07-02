@@ -83,8 +83,8 @@ public class MetricsSummary {
   private int newDeleteFileCnt = 0;
   private long newDeleteRecordCnt = 0;
 
-  private  FilesStatistics inputFilesStatistics = null;
-  private  FilesStatistics outputFilesStatistics = null;
+  private FilesStatistics inputFilesStatistics = null;
+  private FilesStatistics outputFilesStatistics = null;
 
   public MetricsSummary() {}
 

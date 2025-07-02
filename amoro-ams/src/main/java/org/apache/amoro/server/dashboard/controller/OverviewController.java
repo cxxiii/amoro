@@ -106,11 +106,11 @@ public class OverviewController {
 
   public void getCatalogStatistics(Context ctx) {
     String startTime = ctx.queryParam("startTime");
-    String catalogName = ctx.pathParam("catalogName");
+    String catalogName = ctx.pathParam("catalog");
 
     Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
 
-    OverviewTableOptimizingSummary catalogOptimizingstatistics =
+    OverviewTableOptimizingSummary catalogOptimizingStatistics =
         manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
     OverviewSummary catalogOverviewSummary = manager.getCatalogOverviewSummary(catalogName);
     int totalCatalog = catalogOverviewSummary.getCatalogCnt();
@@ -118,11 +118,11 @@ public class OverviewController {
     long totalDataSize = catalogOverviewSummary.getTableTotalSize();
     int totalCpu = catalogOverviewSummary.getTotalCpu();
     long totalMemory = catalogOverviewSummary.getTotalMemory();
-    long optimizingProcessCount = catalogOptimizingstatistics.getOptimizingProcessCount();
-    long optimizingInputFileCount = catalogOptimizingstatistics.getOptimizingInputFileCount();
-    long optimizingInputDataSize = catalogOptimizingstatistics.getOptimizingInputDataSize();
-    long optimizingOutputFileCount = catalogOptimizingstatistics.getOptimizingOutputFileCount();
-    long optimizingOutputDataSize = catalogOptimizingstatistics.getOptimizingOutputDataSize();
+    long optimizingProcessCount = catalogOptimizingStatistics.getOptimizingProcessCount();
+    long optimizingInputFileCount = catalogOptimizingStatistics.getOptimizingInputFileCount();
+    long optimizingInputDataSize = catalogOptimizingStatistics.getOptimizingInputDataSize();
+    long optimizingOutputFileCount = catalogOptimizingStatistics.getOptimizingOutputFileCount();
+    long optimizingOutputDataSize = catalogOptimizingStatistics.getOptimizingOutputDataSize();
 
     OverviewCatalogStatistics overviewCatalogStatistics =
         new OverviewCatalogStatistics(
