@@ -183,7 +183,7 @@ CREATE TABLE table_runtime
     last_minor_optimizing_time TIMESTAMP,
     last_full_optimizing_time TIMESTAMP,
     optimizing_status_code INT DEFAULT 700,
-    optimizing_status_start_time TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+    optimizing_status_start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     optimizing_process_id BIGINT NOT NULL,
     optimizer_group VARCHAR(64) NOT NULL,
     table_config TEXT,
@@ -373,19 +373,19 @@ COMMENT ON COLUMN table_blocker.prev_blocker_id is 'prev blocker id when created
 
 
 CREATE TABLE http_session (
-                              session_id    VARCHAR(120) NOT NULL,
-                              context_path  VARCHAR(60),
-                              virtual_host  VARCHAR(60),
-                              last_node     VARCHAR(60),
-                              access_time   BIGINT,
-                              last_access_time  BIGINT,
-                              create_time   BIGINT,
-                              cookie_time   BIGINT,
-                              last_save_time BIGINT,
-                              expiry_time   BIGINT,
-                              max_interval  BIGINT,
-                              data_store    BYTEA,
-                              PRIMARY KEY (session_id, context_path, virtual_host)
+    session_id    VARCHAR(120) NOT NULL,
+    context_path  VARCHAR(60),
+    virtual_host  VARCHAR(60),
+    last_node     VARCHAR(60),
+    access_time   BIGINT,
+    last_access_time  BIGINT,
+    create_time   BIGINT,
+    cookie_time   BIGINT,
+    last_save_time BIGINT,
+    expiry_time   BIGINT,
+    max_interval  BIGINT,
+    data_store    BYTEA,
+    PRIMARY KEY (session_id, context_path, virtual_host)
 );
 CREATE INDEX idx_session_expiry ON http_session (expiry_time);
 

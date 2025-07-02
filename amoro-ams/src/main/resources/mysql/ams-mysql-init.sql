@@ -123,7 +123,7 @@ CREATE TABLE `table_runtime`
     `last_minor_optimizing_time`    timestamp NULL DEFAULT NULL COMMENT 'Latest Minor Optimize time for all partitions',
     `last_full_optimizing_time`     timestamp NULL DEFAULT NULL COMMENT 'Latest Full Optimize time for all partitions',
     `optimizing_status_code`        int DEFAULT 700 COMMENT 'Table optimize status code: 100(FULL_OPTIMIZING), 200(MAJOR_OPTIMIZING), 300(MINOR_OPTIMIZING), 400(COMMITTING), 500(PLANING), 600(PENDING), 700(IDLE)',
-    `optimizing_status_start_time`  timestamp(3) default CURRENT_TIMESTAMP(3) COMMENT 'Table optimize status start time',
+    `optimizing_status_start_time`  timestamp default CURRENT_TIMESTAMP COMMENT 'Table optimize status start time',
     `optimizing_process_id`         bigint(20) NOT NULL COMMENT 'optimizing_procedure UUID',
     `optimizer_group`               varchar(64) NOT NULL,
     `table_config`                  mediumtext,
@@ -204,41 +204,41 @@ CREATE TABLE `api_tokens`
 ) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Openapi  secret';
 
 CREATE TABLE `platform_file` (
-                                 `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
-                                 `file_name` varchar(100) NOT NULL COMMENT 'file name',
-                                 `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
-                                 `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
-                                 `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
-                                 PRIMARY KEY (`id`)
+    `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
+    `file_name` varchar(100) NOT NULL COMMENT 'file name',
+    `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
+    `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
+    `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
+    PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='store files info saved in the platform';
 
 CREATE TABLE `table_blocker` (
-                                 `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
-                                 `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
-                                 `db_name` varchar(128) NOT NULL COMMENT 'Database name',
-                                 `table_name` varchar(256) NOT NULL COMMENT 'Table name',
-                                 `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
-                                 `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
-                                 `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
-                                 `properties` mediumtext COMMENT 'Blocker properties',
-                                 `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
-                                 PRIMARY KEY (`blocker_id`),
-                                 UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
+    `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
+    `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
+    `db_name` varchar(128) NOT NULL COMMENT 'Database name',
+    `table_name` varchar(256) NOT NULL COMMENT 'Table name',
+    `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
+    `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
+    `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
+    `properties` mediumtext COMMENT 'Blocker properties',
+    `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
+    PRIMARY KEY (`blocker_id`),
+    UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Table blockers' ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE `http_session` (
-                                `session_id`    varchar(120) NOT NULL COMMENT 'HTTP Session ID',
-                                `context_path`  varchar(60) COMMENT 'Jetty Context path',
-                                `virtual_host`  varchar(60) COMMENT 'Jetty virtual host',
-                                `last_node`     varchar(60) COMMENT 'Last node',
-                                `access_time`   bigint(20) COMMENT 'Access time',
-                                `last_access_time`  bigint(20) COMMENT 'Last access time',
-                                `create_time`   bigint(20)  COMMENT 'Create time',
-                                `cookie_time`   bigint(20)  COMMENT 'Cookie time',
-                                `last_save_time` bigint(20) COMMENT 'Last save time',
-                                `expiry_time`   bigint(20)  COMMENT 'Expiry time',
-                                `max_interval`  bigint(20)  COMMENT 'Max internal',
-                                `data_store`    blob        COMMENT 'Session data store',
-                                PRIMARY KEY(`session_id`, `context_path`, `virtual_host`),
-                                KEY `idx_session_expiry` (`expiry_time`)
+    `session_id`    varchar(120) NOT NULL COMMENT 'HTTP Session ID',
+    `context_path`  varchar(60) COMMENT 'Jetty Context path',
+    `virtual_host`  varchar(60) COMMENT 'Jetty virtual host',
+    `last_node`     varchar(60) COMMENT 'Last node',
+    `access_time`   bigint(20) COMMENT 'Access time',
+    `last_access_time`  bigint(20) COMMENT 'Last access time',
+    `create_time`   bigint(20)  COMMENT 'Create time',
+    `cookie_time`   bigint(20)  COMMENT 'Cookie time',
+    `last_save_time` bigint(20) COMMENT 'Last save time',
+    `expiry_time`   bigint(20)  COMMENT 'Expiry time',
+    `max_interval`  bigint(20)  COMMENT 'Max internal',
+    `data_store`    blob        COMMENT 'Session data store',
+    PRIMARY KEY(`session_id`, `context_path`, `virtual_host`),
+    KEY `idx_session_expiry` (`expiry_time`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Http session store' ROW_FORMAT=DYNAMIC;
