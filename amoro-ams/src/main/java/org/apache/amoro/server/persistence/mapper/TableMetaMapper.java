@@ -469,11 +469,6 @@ public interface TableMetaMapper {
   TableRuntimeMeta getTableRuntimeMeta(@Param("tableId") long tableId);
 
   @Select(
-      "SELECT CONCAT(catalog_name, '.', db_name, '.', table_name) FROM table_runtime"
-          + " WHERE catalog_name = #{catalog_name}")
-  List<String> getTableNames(@Param("catalog_name") String catalog_name);
-
-  @Select(
       "<script>"
           + "<bind name=\"isMySQL\" value=\"_databaseId == 'mysql'\" />"
           + "<bind name=\"isPostgreSQL\" value=\"_databaseId == 'postgres'\" />"

@@ -20,7 +20,10 @@ package org.apache.amoro.server.dashboard.controller;
 
 import io.javalin.http.Context;
 import org.apache.amoro.server.dashboard.OverviewManager;
-import org.apache.amoro.server.dashboard.model.*;
+import org.apache.amoro.server.dashboard.model.OverviewDataSizeItem;
+import org.apache.amoro.server.dashboard.model.OverviewResourceUsageItem;
+import org.apache.amoro.server.dashboard.model.OverviewSummary;
+import org.apache.amoro.server.dashboard.model.OverviewTopTableItem;
 import org.apache.amoro.server.dashboard.response.OkResponse;
 import org.apache.amoro.shade.guava32.com.google.common.base.Preconditions;
 import org.apache.amoro.shade.guava32.com.google.common.collect.ImmutableMap;
@@ -30,6 +33,7 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** The controller that handles overview page requests. */
@@ -106,48 +110,21 @@ public class OverviewController {
 
   public void getCatalogStatistics(Context ctx) {
     String startTime = ctx.queryParam("startTime");
-    String catalogName = ctx.pathParam("catalog");
+    String catalogName = ctx.queryParam("catalog");
 
-    Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
+    OverviewSummary overviewSummary;
+    if (StringUtils.isBlank(startTime) && StringUtils.isBlank(catalogName)) {
+      overviewSummary = manager.getAllCatalogSummary();
+    } else if (StringUtils.isBlank(startTime)) {
+      overviewSummary =
+          manager.getCatalogOptimizing(
+              System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1), catalogName);
+    } else {
+      Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
+      Preconditions.checkArgument(StringUtils.isNotBlank(catalogName), "catalog can not be empty!");
+      overviewSummary = manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
+    }
 
-    OverviewTableOptimizingSummary catalogOptimizingStatistics =
-        manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
-    OverviewSummary catalogOverviewSummary = manager.getCatalogOverviewSummary(catalogName);
-    int totalCatalog = catalogOverviewSummary.getCatalogCnt();
-    int totalTableCount = catalogOverviewSummary.getTableCnt();
-    long totalDataSize = catalogOverviewSummary.getTableTotalSize();
-    int totalCpu = catalogOverviewSummary.getTotalCpu();
-    long totalMemory = catalogOverviewSummary.getTotalMemory();
-    long optimizingProcessCount = catalogOptimizingStatistics.getOptimizingProcessCount();
-    long optimizingInputFileCount = catalogOptimizingStatistics.getOptimizingInputFileCount();
-    long optimizingInputDataSize = catalogOptimizingStatistics.getOptimizingInputDataSize();
-    long optimizingOutputFileCount = catalogOptimizingStatistics.getOptimizingOutputFileCount();
-    long optimizingOutputDataSize = catalogOptimizingStatistics.getOptimizingOutputDataSize();
-
-    OverviewCatalogStatistics overviewCatalogStatistics =
-        new OverviewCatalogStatistics(
-            totalCatalog,
-            totalTableCount,
-            totalDataSize,
-            totalCpu,
-            totalMemory,
-            optimizingProcessCount,
-            optimizingInputFileCount,
-            optimizingInputDataSize,
-            optimizingOutputFileCount,
-            optimizingOutputDataSize);
-    ctx.json(OkResponse.of(overviewCatalogStatistics));
-  }
-
-  public void getSummary(Context ctx) {
-    int totalCatalog = manager.getTotalCatalog();
-    int totalTableCount = manager.getTotalTableCount();
-    long totalDataSize = manager.getTotalDataSize();
-    int totalCpu = manager.getTotalCpu();
-    long totalMemory = manager.getTotalMemory();
-
-    OverviewSummary overviewSummary =
-        new OverviewSummary(totalCatalog, totalTableCount, totalDataSize, totalCpu, totalMemory);
     ctx.json(OkResponse.of(overviewSummary));
   }
 

@@ -27,6 +27,11 @@ public class OverviewSummary {
   private long tableTotalSize;
   private int totalCpu;
   private long totalMemory;
+  private long optimizingProcessCount;
+  private long optimizingInputFileCount;
+  private long optimizingInputDataSize;
+  private long optimizingOutputFileCount;
+  private long optimizingOutputDataSize;
 
   public OverviewSummary() {}
 
@@ -37,6 +42,69 @@ public class OverviewSummary {
     this.tableTotalSize = tableTotalSize;
     this.totalCpu = totalCpu;
     this.totalMemory = totalMemory;
+  }
+
+  public OverviewSummary(
+      int catalogCnt,
+      int tableCnt,
+      long tableTotalSize,
+      int totalCpu,
+      long totalMemory,
+      long optimizingProcessCount,
+      long optimizingInputFileCount,
+      long optimizingInputDataSize,
+      long optimizingOutputFileCount,
+      long optimizingOutputDataSize) {
+    this.catalogCnt = catalogCnt;
+    this.tableCnt = tableCnt;
+    this.tableTotalSize = tableTotalSize;
+    this.totalCpu = totalCpu;
+    this.totalMemory = totalMemory;
+    this.optimizingProcessCount = optimizingProcessCount;
+    this.optimizingInputFileCount = optimizingInputFileCount;
+    this.optimizingInputDataSize = optimizingInputDataSize;
+    this.optimizingOutputFileCount = optimizingOutputFileCount;
+    this.optimizingOutputDataSize = optimizingOutputDataSize;
+  }
+
+  public long getOptimizingProcessCount() {
+    return optimizingProcessCount;
+  }
+
+  public void setOptimizingProcessCount(long optimizingProcessCount) {
+    this.optimizingProcessCount = optimizingProcessCount;
+  }
+
+  public long getOptimizingInputFileCount() {
+    return optimizingInputFileCount;
+  }
+
+  public void setOptimizingInputFileCount(long optimizingInputFileCount) {
+    this.optimizingInputFileCount = optimizingInputFileCount;
+  }
+
+  public long getOptimizingInputDataSize() {
+    return optimizingInputDataSize;
+  }
+
+  public void setOptimizingInputDataSize(long optimizingInputDataSize) {
+    this.optimizingInputDataSize = optimizingInputDataSize;
+  }
+
+  public long getOptimizingOutputFileCount() {
+    return optimizingOutputFileCount;
+  }
+
+  public void setOptimizingOutputFileCount(long optimizingOutputFileCount) {
+    this.optimizingOutputFileCount = optimizingOutputFileCount;
+  }
+
+  public long getOptimizingOutputDataSize() {
+    return optimizingOutputDataSize;
+  }
+
+  public void setOptimizingOutputDataSize(long optimizingOutputDataSize) {
+    this.optimizingOutputDataSize = optimizingOutputDataSize;
   }
 
   public int getCatalogCnt() {
@@ -87,6 +155,11 @@ public class OverviewSummary {
         .add("tableTotalSize", tableTotalSize)
         .add("totalCpu", totalCpu)
         .add("totalMemory", totalMemory)
+        .add("optimizingProcessCount", optimizingProcessCount)
+        .add("optimizingInputFileCount", optimizingInputFileCount)
+        .add("optimizingInputDataSize", optimizingInputDataSize)
+        .add("inputFileAverageSize", optimizingOutputFileCount)
+        .add("outputFileAverageSize", optimizingOutputDataSize)
         .toString();
   }
 }

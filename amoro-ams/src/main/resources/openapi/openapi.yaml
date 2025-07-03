@@ -499,43 +499,25 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/OverviewTopTableItem'
-  /api/ams/v1/overview/summary/catalogs/{catalog}/catalogSummary:
-    get:
-      tags:
-        - Overview
-      summary: Get catalog overview summary
-      description: Get an overview summary of a certain catalog
-      parameters:
-        - name: startTime
-          in: query
-          required: true
-          schema:
-            type: string
-          description: The start time for the history
-        - name: catalogName
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The catalog name of the optimizing file statistics
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/Response'
-                  - type: object
-                    properties:
-                      result:
-                        $ref: '#/components/schemas/OverviewCatalogStatistics'
   /api/ams/v1/overview/summary:
     get:
       tags:
         - Overview
       summary: Get overview summary
       description: Get an overview summary
+      parameters:
+        - name: startTime
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The start time for the history
+        - name: catalogName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The catalog name of the optimizing file statistics
       responses:
         '200':
           description: Successful response
@@ -921,7 +903,7 @@ components:
           type: integer
         healthScore:
           type: integer
-    OverviewCatalogStatistics:
+    OverviewSummary:
       type: object
       properties:
         totalCatalog:
@@ -943,19 +925,6 @@ components:
         optimizingOutputFileCount:
           type: integer
         optimizingOutputDataSize:
-          type: integer
-    OverviewSummary:
-      type: object
-      properties:
-        totalCatalog:
-          type: integer
-        totalTableCount:
-          type: integer
-        totalDataSize:
-          type: integer
-        totalCpu:
-          type: integer
-        totalMemory:
           type: integer
     OptimizerResourceInfo:
       type: object

@@ -369,10 +369,7 @@ public class DashboardServer {
       path(
           "/overview",
           () -> {
-            get("/summary", overviewController::getSummary);
-            get(
-                "/summary/catalogs/{catalog}/catalogSummary",
-                overviewController::getCatalogStatistics);
+            get("/summary", overviewController::getCatalogStatistics);
             get("/resource", overviewController::getResourceUsageHistory);
             get("/optimizing", overviewController::getOptimizingStatus);
             get("/dataSize", overviewController::getDataSizeHistory);

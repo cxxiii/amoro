@@ -83,9 +83,6 @@ public class MetricsSummary {
   private int newDeleteFileCnt = 0;
   private long newDeleteRecordCnt = 0;
 
-  private FilesStatistics inputFilesStatistics = null;
-  private FilesStatistics outputFilesStatistics = null;
-
   public MetricsSummary() {}
 
   protected MetricsSummary(RewriteFilesInput input) {
@@ -210,14 +207,6 @@ public class MetricsSummary {
     FilesStatisticsBuilder outputBuilder = new FilesStatisticsBuilder();
     outputBuilder.addFiles(newFileSize, newFileCnt);
     return outputBuilder.build();
-  }
-
-  public void setInputFilesStatistics(FilesStatistics statistics) {
-    inputFilesStatistics = statistics;
-  }
-
-  public void setOutputFilesStatistics(FilesStatistics statistics) {
-    outputFilesStatistics = statistics;
   }
 
   public long getNewFileSize() {
