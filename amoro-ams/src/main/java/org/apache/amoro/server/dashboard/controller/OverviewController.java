@@ -33,7 +33,6 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** The controller that handles overview page requests. */
@@ -111,20 +110,16 @@ public class OverviewController {
   public void getSummary(Context ctx) {
     String startTime = ctx.queryParam("startTime");
     String catalogName = ctx.queryParam("catalog");
-
     OverviewSummary overviewSummary;
-    if (StringUtils.isBlank(startTime) && StringUtils.isBlank(catalogName)) {
-      overviewSummary = manager.getAllCatalogSummary();
-    } else if (StringUtils.isBlank(startTime)) {
-      overviewSummary =
-          manager.getCatalogOptimizing(
-              System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1), catalogName);
+    if (StringUtils.isBlank(startTime)) {
+      startTime = Long.toString(System.currentTimeMillis());
+    }
+    Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
+    if (StringUtils.isBlank(catalogName)) {
+      overviewSummary = manager.getAllCatalogSummary(Long.parseLong(startTime));
     } else {
-      Preconditions.checkArgument(StringUtils.isNumeric(startTime), "invalid startTime!");
-      Preconditions.checkArgument(StringUtils.isNotBlank(catalogName), "catalog can not be empty!");
       overviewSummary = manager.getCatalogOptimizing(Long.parseLong(startTime), catalogName);
     }
-
     ctx.json(OkResponse.of(overviewSummary));
   }
 

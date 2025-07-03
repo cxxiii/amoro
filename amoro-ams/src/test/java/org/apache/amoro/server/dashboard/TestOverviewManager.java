@@ -30,6 +30,7 @@ import org.apache.amoro.TableTestHelper;
 import org.apache.amoro.catalog.BasicCatalogTestHelper;
 import org.apache.amoro.catalog.CatalogTestHelper;
 import org.apache.amoro.io.MixedDataTestHelpers;
+import org.apache.amoro.server.dashboard.model.OverviewSummary;
 import org.apache.amoro.server.dashboard.model.OverviewTopTableItem;
 import org.apache.amoro.server.table.AMSTableTestBase;
 import org.apache.amoro.server.table.TableRuntime;
@@ -116,11 +117,13 @@ public class TestOverviewManager extends AMSTableTestBase {
   @Test
   public void testOverviewCache() {
     // empty table
-    Assertions.assertEquals(1, overviewManager.getTotalCatalog());
-    Assertions.assertEquals(1, overviewManager.getTotalTableCount());
-    Assertions.assertEquals(0, overviewManager.getTotalDataSize());
-    Assertions.assertEquals(0, overviewManager.getTotalCpu());
-    Assertions.assertEquals(0, overviewManager.getTotalMemory());
+    OverviewSummary overviewSummary =
+        overviewManager.getAllCatalogSummary(System.currentTimeMillis());
+    Assertions.assertEquals(1, overviewSummary.getCatalogCnt());
+    Assertions.assertEquals(1, overviewSummary.getTableCnt());
+    Assertions.assertEquals(0, overviewSummary.getTableTotalSize());
+    Assertions.assertEquals(0, overviewSummary.getTotalCpu());
+    Assertions.assertEquals(0, overviewSummary.getTotalMemory());
 
     Assertions.assertEquals(0, overviewManager.getOptimizingStatus().get(STATUS_PENDING));
     Assertions.assertEquals(0, overviewManager.getOptimizingStatus().get(STATUS_COMMITTING));
@@ -140,7 +143,8 @@ public class TestOverviewManager extends AMSTableTestBase {
     refreshPending();
     overviewManager.refresh();
 
-    Assertions.assertTrue(overviewManager.getTotalDataSize() > 0);
+    overviewSummary = overviewManager.getAllCatalogSummary(System.currentTimeMillis());
+    Assertions.assertTrue(overviewSummary.getTableTotalSize() > 0);
 
     Assertions.assertEquals(1, overviewManager.getOptimizingStatus().get(STATUS_PENDING));
     Assertions.assertEquals(0, overviewManager.getOptimizingStatus().get(STATUS_IDLE));

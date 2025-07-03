@@ -20,8 +20,9 @@ package org.apache.amoro.server.dashboard.model;
 
 import org.apache.amoro.shade.guava32.com.google.common.base.MoreObjects;
 
-public class OverviewSummary {
+import java.util.Collection;
 
+public class OverviewSummary {
   private int catalogCnt;
   private int tableCnt;
   private long tableTotalSize;
@@ -145,6 +146,23 @@ public class OverviewSummary {
 
   public void setTotalMemory(long totalMemory) {
     this.totalMemory = totalMemory;
+  }
+
+  public static OverviewSummary aggregate(Collection<OverviewSummary> overviewSummaries) {
+    OverviewSummary aggregateSummary = new OverviewSummary();
+    for (OverviewSummary overviewSummary : overviewSummaries) {
+      aggregateSummary.catalogCnt += overviewSummary.catalogCnt;
+      aggregateSummary.tableCnt += overviewSummary.tableCnt;
+      aggregateSummary.tableTotalSize += overviewSummary.tableTotalSize;
+      aggregateSummary.totalCpu += overviewSummary.totalCpu;
+      aggregateSummary.totalMemory += overviewSummary.totalMemory;
+      aggregateSummary.optimizingProcessCount += overviewSummary.optimizingProcessCount;
+      aggregateSummary.optimizingInputFileCount += overviewSummary.optimizingInputFileCount;
+      aggregateSummary.optimizingInputDataSize += overviewSummary.optimizingInputDataSize;
+      aggregateSummary.optimizingOutputFileCount += overviewSummary.optimizingOutputFileCount;
+      aggregateSummary.optimizingOutputDataSize += overviewSummary.optimizingOutputDataSize;
+    }
+    return aggregateSummary;
   }
 
   @Override

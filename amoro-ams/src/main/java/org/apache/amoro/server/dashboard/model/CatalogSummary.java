@@ -18,85 +18,93 @@
 
 package org.apache.amoro.server.dashboard.model;
 
+import com.google.common.collect.Maps;
 import org.apache.amoro.shade.guava32.com.google.common.base.MoreObjects;
+import org.apache.amoro.shade.guava32.com.google.common.collect.Lists;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.TimeZone;
 
 public class CatalogSummary {
-
-  private int catalogCnt;
-  private int tableCnt;
+  private int tableCount;
   private long tableTotalSize;
   private int totalCpu;
   private long totalMemory;
-  private Map<Long, OptimizingSummary> optimizingSummariesPerHour = new ConcurrentHashMap<>();
+  private final Map<LocalDateTime, OptimizingSummary> optimizingSummariesPerHour =
+      Maps.newConcurrentMap();
 
   public CatalogSummary() {}
 
-  public CatalogSummary(
-      int catalogCnt, int tableCnt, long tableTotalSize, int totalCpu, long totalMemory) {
-    this.catalogCnt = catalogCnt;
-    this.tableCnt = tableCnt;
-    this.tableTotalSize = tableTotalSize;
-    this.totalCpu = totalCpu;
-    this.totalMemory = totalMemory;
-  }
-
-  public Map<Long, OptimizingSummary> getOptimizingSummariesPerHour() {
-    return optimizingSummariesPerHour;
-  }
-
-  public void setOptimizingSummariesPerHour(
-      Map<Long, OptimizingSummary> optimizingSummariesPerHour) {
-    this.optimizingSummariesPerHour = optimizingSummariesPerHour;
-  }
-
-  public int getCatalogCnt() {
-    return catalogCnt;
-  }
-
-  public void setCatalogCnt(int catalogCnt) {
-    this.catalogCnt = catalogCnt;
-  }
-
-  public int getTableCnt() {
-    return tableCnt;
-  }
-
   public void setTableCnt(int tableCnt) {
-    this.tableCnt = tableCnt;
-  }
-
-  public long getTableTotalSize() {
-    return tableTotalSize;
+    this.tableCount = tableCnt;
   }
 
   public void setTableTotalSize(long tableTotalSize) {
     this.tableTotalSize = tableTotalSize;
   }
 
-  public int getTotalCpu() {
-    return totalCpu;
-  }
-
   public void setTotalCpu(int totalCpu) {
     this.totalCpu = totalCpu;
-  }
-
-  public long getTotalMemory() {
-    return totalMemory;
   }
 
   public void setTotalMemory(long totalMemory) {
     this.totalMemory = totalMemory;
   }
 
+  public long getTableTotalSize() {
+    return tableTotalSize;
+  }
+
+  public OverviewSummary summary(long startTime) {
+    LocalDateTime now = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
+    LocalDateTime start =
+        Instant.ofEpochMilli(startTime)
+            .atZone(TimeZone.getDefault().toZoneId())
+            .toLocalDateTime()
+            .withMinute(0)
+            .withSecond(0)
+            .withNano(0);
+    List<OptimizingSummary> optimizingSummaries = Lists.newArrayList();
+    while (start.isBefore(now) || start.equals(now)) {
+      if (optimizingSummariesPerHour.containsKey(start)) {
+        optimizingSummaries.add(optimizingSummariesPerHour.get(start));
+      }
+      start = start.plusHours(1);
+    }
+    OverviewSummary summary =
+        new OverviewSummary(1, tableCount, tableTotalSize, totalCpu, totalMemory);
+    summary.setOptimizingProcessCount(
+        optimizingSummaries.stream().mapToLong(OptimizingSummary::getOptimizingProcessCount).sum());
+    summary.setOptimizingInputDataSize(
+        optimizingSummaries.stream()
+            .mapToLong(OptimizingSummary::getOptimizingInputDataSize)
+            .sum());
+    summary.setOptimizingInputFileCount(
+        optimizingSummaries.stream()
+            .mapToLong(OptimizingSummary::getOptimizingInputFileCount)
+            .sum());
+    summary.setOptimizingOutputDataSize(
+        optimizingSummaries.stream()
+            .mapToLong(OptimizingSummary::getOptimizingOutputDataSize)
+            .sum());
+    summary.setOptimizingOutputFileCount(
+        optimizingSummaries.stream()
+            .mapToLong(OptimizingSummary::getOptimizingOutputFileCount)
+            .sum());
+    return summary;
+  }
+
+  public Map<LocalDateTime, OptimizingSummary> getOptimizingSummaries() {
+    return optimizingSummariesPerHour;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("catalogCnt", catalogCnt)
-        .add("tableCnt", tableCnt)
+        .add("tableCount", tableCount)
         .add("tableTotalSize", tableTotalSize)
         .add("totalCpu", totalCpu)
         .add("totalMemory", totalMemory)

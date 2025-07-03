@@ -18,6 +18,7 @@
 
 package org.apache.amoro.server.dashboard;
 
+import com.clearspring.analytics.util.Lists;
 import org.apache.amoro.api.CatalogMeta;
 import org.apache.amoro.config.Configurations;
 import org.apache.amoro.optimizing.MetricsSummary;
@@ -48,12 +49,14 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
@@ -64,7 +67,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class OverviewManager extends PersistentBase {
-
+  private static final int OPTIMIZING_SUMMARY_DAYS = 30;
   public static final String STATUS_PENDING = "Pending";
   public static final String STATUS_PLANING = "Planing";
   public static final String STATUS_EXECUTING = "Executing";
@@ -110,24 +113,8 @@ public class OverviewManager extends PersistentBase {
     return ImmutableList.copyOf(allTopTableItem);
   }
 
-  public int getTotalCatalog() {
-    return catalogSummaryMap.size();
-  }
-
-  public int getTotalTableCount() {
-    return catalogSummaryMap.values().stream().mapToInt(CatalogSummary::getTableCnt).sum();
-  }
-
-  public long getTotalDataSize() {
+  private long getTotalDataSize() {
     return catalogSummaryMap.values().stream().mapToLong(CatalogSummary::getTableTotalSize).sum();
-  }
-
-  public int getTotalCpu() {
-    return totalCpu.get();
-  }
-
-  public long getTotalMemory() {
-    return totalMemory.get();
   }
 
   public List<OverviewResourceUsageItem> getResourceUsageHistory(long startTime) {
@@ -142,81 +129,24 @@ public class OverviewManager extends PersistentBase {
         .collect(Collectors.toList());
   }
 
-  public OverviewSummary getAllCatalogSummary() {
-    AtomicInteger totalCatalogCnt = new AtomicInteger();
-    AtomicInteger totalTableCnt = new AtomicInteger();
-    AtomicLong totalTableTotalSize = new AtomicLong();
-    AtomicInteger totalCpu = new AtomicInteger();
-    AtomicLong totalMemory = new AtomicLong();
-
+  public OverviewSummary getAllCatalogSummary(long startTime) {
+    List<OverviewSummary> catalogSummaries = Lists.newArrayList();
     for (CatalogSummary catalogSummary : catalogSummaryMap.values()) {
-      totalCatalogCnt.addAndGet(catalogSummary.getCatalogCnt());
-      totalTableCnt.addAndGet(catalogSummary.getTableCnt());
-      totalTableTotalSize.addAndGet(catalogSummary.getTableTotalSize());
-      totalCpu.addAndGet(catalogSummary.getTotalCpu());
-      totalMemory.addAndGet(catalogSummary.getTotalMemory());
+      catalogSummaries.add(catalogSummary.summary(startTime));
     }
-
-    return new OverviewSummary(
-        totalCatalogCnt.get(),
-        totalTableCnt.get(),
-        totalTableTotalSize.get(),
-        totalCpu.get(),
-        totalMemory.get());
+    OverviewSummary summary = OverviewSummary.aggregate(catalogSummaries);
+    summary.setTotalCpu(totalCpu.get());
+    summary.setTotalMemory(totalMemory.get());
+    return summary;
   }
 
   public OverviewSummary getCatalogOptimizing(long startTime, String catalogName) {
     CatalogSummary catalogSummary = catalogSummaryMap.get(catalogName);
-    Map<Long, OptimizingSummary> optimizingSummariesPerHour =
-        catalogSummary.getOptimizingSummariesPerHour();
-
-    if (optimizingSummariesPerHour.isEmpty()) {
-      return new OverviewSummary(
-          catalogSummary.getCatalogCnt(),
-          catalogSummary.getTableCnt(),
-          catalogSummary.getTableTotalSize(),
-          catalogSummary.getTotalCpu(),
-          catalogSummary.getTotalMemory());
+    // Prevent the catalog summary is not refreshed
+    if (catalogSummary == null) {
+      catalogSummary = new CatalogSummary();
     }
-
-    long latestRefreshTs = optimizingSummariesPerHour.keySet().stream().max(Long::compare).get();
-    List<OptimizingSummary> optimizingSummaryList =
-        optimizingSummariesPerHour.keySet().stream()
-            .filter(
-                ts -> {
-                  boolean condition1 = ts >= startTime + TimeUnit.HOURS.toMillis(1);
-                  long diffMillis = latestRefreshTs - ts;
-                  boolean condition2 = diffMillis % TimeUnit.HOURS.toMillis(1) == 0;
-                  return condition1 && condition2;
-                })
-            .map(optimizingSummariesPerHour::get)
-            .collect(Collectors.toList());
-
-    AtomicLong totalMergeTaskCnt = new AtomicLong();
-    AtomicLong totalInputDataSize = new AtomicLong();
-    AtomicLong totalOutputDataSize = new AtomicLong();
-    AtomicLong totalInputFileCnt = new AtomicLong();
-    AtomicLong totalOutputFileCnt = new AtomicLong();
-
-    for (OptimizingSummary summary : optimizingSummaryList) {
-      totalMergeTaskCnt.addAndGet(summary.getOptimizingProcessCount());
-      totalInputFileCnt.addAndGet(summary.getOptimizingInputFileCount());
-      totalInputDataSize.addAndGet(summary.getOptimizingInputDataSize());
-      totalOutputFileCnt.addAndGet(summary.getOptimizingOutputFileCount());
-      totalOutputDataSize.addAndGet(summary.getOptimizingOutputDataSize());
-    }
-
-    return new OverviewSummary(
-        catalogSummary.getCatalogCnt(),
-        catalogSummary.getTableCnt(),
-        catalogSummary.getTableTotalSize(),
-        catalogSummary.getTotalCpu(),
-        catalogSummary.getTotalMemory(),
-        totalMergeTaskCnt.get(),
-        totalInputFileCnt.get(),
-        totalInputDataSize.get(),
-        totalOutputFileCnt.get(),
-        totalOutputDataSize.get());
+    return catalogSummary.summary(startTime);
   }
 
   public Map<String, Long> getOptimizingStatus() {
@@ -230,8 +160,7 @@ public class OverviewManager extends PersistentBase {
     try {
       refreshTableCache(start);
       refreshResourceUsage(start);
-      refreshOptimizingSummary(start);
-
+      refreshOptimizingSummary();
     } catch (Exception e) {
       LOG.error("Refreshed overview cache failed", e);
     } finally {
@@ -275,7 +204,6 @@ public class OverviewManager extends PersistentBase {
           }
         }
       }
-      catalogSummaryMap.get(catalogName).setCatalogCnt(1);
       catalogSummaryMap.get(catalogName).setTableCnt(topTableItemMap.size());
       catalogSummaryMap.get(catalogName).setTableTotalSize(totalDataSize.get());
 
@@ -300,50 +228,72 @@ public class OverviewManager extends PersistentBase {
     this.optimizingStatusCountMap.putAll(optimizingStatusMap);
   }
 
-  private void refreshOptimizingSummary(long ts) {
+  private void refreshOptimizingSummary() {
     List<CatalogMeta> catalogMetaList =
         getAs(CatalogMetaMapper.class, CatalogMetaMapper::getCatalogs);
-    List<String> catalogList =
-        catalogMetaList.stream().map(CatalogMeta::getCatalogName).collect(Collectors.toList());
-
-    for (String catalogName : catalogList) {
-      OptimizingSummary optimizingSummary = obtainCatalogOptimizingInfo(catalogName, ts);
-      addAndCheck(optimizingSummary, catalogName);
+    long currentTimestamp = System.currentTimeMillis();
+    LocalDateTime currentHour = currentHour(currentTimestamp);
+    LocalDateTime startTime = currentHour.minusDays(OPTIMIZING_SUMMARY_DAYS);
+    for (CatalogMeta catalogMeta : catalogMetaList) {
+      LocalDateTime summaryTime = startTime;
+      catalogSummaryMap.putIfAbsent(catalogMeta.getCatalogName(), new CatalogSummary());
+      CatalogSummary catalogSummary = catalogSummaryMap.get(catalogMeta.getCatalogName());
+      while (summaryTime.isBefore(currentHour) || summaryTime.equals(currentHour)) {
+        // Always refresh summary for current hour
+        if (summaryTime.equals(currentHour)) {
+          catalogSummary
+              .getOptimizingSummaries()
+              .put(
+                  summaryTime,
+                  obtainOptimizingSummary(
+                      catalogMeta.getCatalogName(), toTimestamp(summaryTime), currentTimestamp));
+        } else if (!catalogSummary.getOptimizingSummaries().containsKey(summaryTime)) {
+          catalogSummary
+              .getOptimizingSummaries()
+              .put(
+                  summaryTime,
+                  obtainOptimizingSummary(
+                      catalogMeta.getCatalogName(),
+                      toTimestamp(summaryTime),
+                      toTimestamp(summaryTime.plusHours(1))));
+        }
+        summaryTime = summaryTime.plusHours(1);
+      }
+      catalogSummary.getOptimizingSummaries().keySet().removeIf(time -> time.isBefore(startTime));
     }
   }
 
-  private OptimizingSummary obtainCatalogOptimizingInfo(String catalog, long ts) {
-    AtomicLong optimizingProcessCount = new AtomicLong();
-    AtomicLong optimizingInputFileCount = new AtomicLong();
-    AtomicLong optimizingInputDataSize = new AtomicLong();
-    AtomicLong optimizingOutputFileCount = new AtomicLong();
-    AtomicLong optimizingOutputDataSize = new AtomicLong();
+  private OptimizingSummary obtainOptimizingSummary(String catalog, long startTime, long endTime) {
+    long optimizingProcessCount = 0L;
+    long optimizingInputFileCount = 0L;
+    long optimizingInputDataSize = 0L;
+    long optimizingOutputFileCount = 0L;
+    long optimizingOutputDataSize = 0L;
 
     ProcessStatus status = ProcessStatus.SUCCESS;
-    Timestamp endTime = new Timestamp(ts);
-    Timestamp startTime = new Timestamp(ts - TimeUnit.HOURS.toMillis(1));
-    List<String> jsonList =
+    Timestamp startTimestamp = new Timestamp(startTime);
+    Timestamp endTimestamp = new Timestamp(endTime);
+    List<String> optimizingSummaries =
         getAs(
             OptimizingMapper.class,
-            mapper -> mapper.selectProcessesMetrics(catalog, status, startTime, endTime));
-    for (String json : jsonList) {
-      MetricsSummary summary = JacksonUtil.parseObject(json, MetricsSummary.class);
+            mapper -> mapper.selectProcessesMetrics(catalog, status, startTimestamp, endTimestamp));
+    for (String optimizingSummary : optimizingSummaries) {
+      MetricsSummary summary = JacksonUtil.parseObject(optimizingSummary, MetricsSummary.class);
       if (summary != null) {
-        optimizingProcessCount.incrementAndGet();
-        optimizingInputFileCount.addAndGet(summary.getInputFilesStatistics().getFileCnt());
-        optimizingInputDataSize.addAndGet(summary.getInputFilesStatistics().getTotalSize());
-        optimizingOutputFileCount.addAndGet(summary.getOutputFilesStatistics().getFileCnt());
-        optimizingOutputDataSize.addAndGet(summary.getOutputFilesStatistics().getTotalSize());
+        optimizingProcessCount++;
+        optimizingInputFileCount += summary.getInputFilesStatistics().getFileCnt();
+        optimizingInputDataSize += summary.getInputFilesStatistics().getTotalSize();
+        optimizingOutputFileCount += summary.getOutputFilesStatistics().getFileCnt();
+        optimizingOutputDataSize += summary.getOutputFilesStatistics().getTotalSize();
       }
     }
 
     return new OptimizingSummary(
-        ts,
-        optimizingProcessCount.get(),
-        optimizingInputFileCount.get(),
-        optimizingInputDataSize.get(),
-        optimizingOutputFileCount.get(),
-        optimizingOutputDataSize.get());
+        optimizingProcessCount,
+        optimizingInputFileCount,
+        optimizingInputDataSize,
+        optimizingOutputFileCount,
+        optimizingOutputDataSize);
   }
 
   private Optional<OverviewTopTableItem> toTopTableItem(TableRuntimeMeta meta) {
@@ -415,20 +365,6 @@ public class OverviewManager extends PersistentBase {
     checkSize(resourceUsageHistory);
   }
 
-  private void addAndCheck(OptimizingSummary catalogOptimizingSummary, String catalogName) {
-    catalogSummaryMap
-        .get(catalogName)
-        .getOptimizingSummariesPerHour()
-        .put(catalogOptimizingSummary.getTs(), catalogOptimizingSummary);
-    if (catalogSummaryMap.get(catalogName).getOptimizingSummariesPerHour().size()
-        > maxRecordCount) {
-      Map<Long, OptimizingSummary> optimizingSummariesPerHour =
-          catalogSummaryMap.get(catalogName).getOptimizingSummariesPerHour();
-      long minTs = Collections.min(optimizingSummariesPerHour.keySet());
-      optimizingSummariesPerHour.remove(minTs);
-    }
-  }
-
   private <T> void checkSize(Deque<T> deque) {
     if (deque.size() > maxRecordCount) {
       deque.poll();
@@ -441,5 +377,18 @@ public class OverviewManager extends PersistentBase {
         .concat(meta.getDbName())
         .concat(".")
         .concat(meta.getTableName());
+  }
+
+  private static LocalDateTime currentHour(long currentTimestamp) {
+    return Instant.ofEpochMilli(currentTimestamp)
+        .atZone(TimeZone.getDefault().toZoneId())
+        .toLocalDateTime()
+        .withMinute(0)
+        .withSecond(0)
+        .withNano(0);
+  }
+
+  private static long toTimestamp(LocalDateTime dateTime) {
+    return dateTime.atZone(TimeZone.getDefault().toZoneId()).toInstant().toEpochMilli();
   }
 }
