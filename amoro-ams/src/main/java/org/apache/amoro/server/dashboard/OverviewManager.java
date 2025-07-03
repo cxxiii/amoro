@@ -172,13 +172,12 @@ public class OverviewManager extends PersistentBase {
   private void refreshTableCache(long ts) {
     List<CatalogMeta> catalogMetaList =
         getAs(CatalogMetaMapper.class, CatalogMetaMapper::getCatalogs);
-    List<String> catalogList =
-        catalogMetaList.stream().map(CatalogMeta::getCatalogName).collect(Collectors.toList());
     Map<String, Long> optimizingStatusMap = Maps.newHashMap();
 
     List<TableRuntimeMeta> allMetas =
         getAs(TableMetaMapper.class, TableMetaMapper::selectTableRuntimeMetas);
-    for (String catalogName : catalogList) {
+    for (CatalogMeta catalogMeta : catalogMetaList) {
+      String catalogName = catalogMeta.getCatalogName();
       catalogSummaryMap.putIfAbsent(catalogName, new CatalogSummary());
       AtomicLong totalDataSize = new AtomicLong();
       AtomicInteger totalFileCounts = new AtomicInteger();
@@ -222,7 +221,6 @@ public class OverviewManager extends PersistentBase {
       catalogSummaryMap.get(catalogName).setTotalCpu(cpuCount.get());
       catalogSummaryMap.get(catalogName).setTotalMemory(memoryBytes.get());
     }
-
     addAndCheck(new OverviewDataSizeItem(ts, getTotalDataSize()));
     resetStatusMap();
     this.optimizingStatusCountMap.putAll(optimizingStatusMap);

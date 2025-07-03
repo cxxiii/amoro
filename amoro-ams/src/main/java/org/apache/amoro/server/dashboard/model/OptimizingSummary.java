@@ -27,18 +27,15 @@ public class OptimizingSummary {
   private long optimizingInputDataSize;
   private long optimizingOutputFileCount;
   private long optimizingOutputDataSize;
-  private long ts;
 
   public OptimizingSummary() {}
 
   public OptimizingSummary(
-      long ts,
       long optimizingProcessCount,
       long optimizingInputFileCount,
       long optimizingInputDataSize,
       long optimizingOutputFileCount,
       long optimizingOutputDataSize) {
-    this.ts = ts;
     this.optimizingProcessCount = optimizingProcessCount;
     this.optimizingInputFileCount = optimizingInputFileCount;
     this.optimizingInputDataSize = optimizingInputDataSize;
@@ -60,10 +57,6 @@ public class OptimizingSummary {
 
   public void setOptimizingOutputDataSize(long optimizingOutputDataSize) {
     this.optimizingOutputDataSize = optimizingOutputDataSize;
-  }
-
-  public long getTs() {
-    return ts;
   }
 
   public long getOptimizingProcessCount() {
