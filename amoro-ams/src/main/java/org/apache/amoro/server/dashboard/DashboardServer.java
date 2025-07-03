@@ -18,12 +18,6 @@
 
 package org.apache.amoro.server.dashboard;
 
-import static io.javalin.apibuilder.ApiBuilder.delete;
-import static io.javalin.apibuilder.ApiBuilder.get;
-import static io.javalin.apibuilder.ApiBuilder.path;
-import static io.javalin.apibuilder.ApiBuilder.post;
-import static io.javalin.apibuilder.ApiBuilder.put;
-
 import io.javalin.apibuilder.EndpointGroup;
 import io.javalin.core.security.BasicAuthCredentials;
 import io.javalin.http.ContentType;
@@ -70,6 +64,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
+
+import static io.javalin.apibuilder.ApiBuilder.delete;
+import static io.javalin.apibuilder.ApiBuilder.get;
+import static io.javalin.apibuilder.ApiBuilder.path;
+import static io.javalin.apibuilder.ApiBuilder.post;
+import static io.javalin.apibuilder.ApiBuilder.put;
 
 public class DashboardServer {
 
@@ -369,7 +369,7 @@ public class DashboardServer {
       path(
           "/overview",
           () -> {
-            get("/summary", overviewController::getCatalogStatistics);
+            get("/summary", overviewController::getSummary);
             get("/resource", overviewController::getResourceUsageHistory);
             get("/optimizing", overviewController::getOptimizingStatus);
             get("/dataSize", overviewController::getDataSizeHistory);

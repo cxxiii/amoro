@@ -46,19 +46,6 @@ public class OptimizingSummary {
     this.optimizingOutputDataSize = optimizingOutputDataSize;
   }
 
-  public OptimizingSummary(
-      long optimizingProcessCount,
-      long optimizingInputFileCount,
-      long optimizingInputDataSize,
-      long optimizingOutputFileCount,
-      long optimizingOutputDataSize) {
-    this.optimizingProcessCount = optimizingProcessCount;
-    this.optimizingInputFileCount = optimizingInputFileCount;
-    this.optimizingInputDataSize = optimizingInputDataSize;
-    this.optimizingOutputFileCount = optimizingOutputFileCount;
-    this.optimizingOutputDataSize = optimizingOutputDataSize;
-  }
-
   public long getOptimizingOutputFileCount() {
     return optimizingOutputFileCount;
   }

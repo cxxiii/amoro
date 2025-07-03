@@ -108,7 +108,7 @@ public class OverviewController {
         .collect(Collectors.toList());
   }
 
-  public void getCatalogStatistics(Context ctx) {
+  public void getSummary(Context ctx) {
     String startTime = ctx.queryParam("startTime");
     String catalogName = ctx.queryParam("catalog");
 

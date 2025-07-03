@@ -204,26 +204,26 @@ CREATE TABLE `api_tokens`
 ) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='Openapi  secret';
 
 CREATE TABLE `platform_file` (
-    `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
-    `file_name` varchar(100) NOT NULL COMMENT 'file name',
-    `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
-    `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
-    `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
-    PRIMARY KEY (`id`)
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'file id',
+  `file_name` varchar(100) NOT NULL COMMENT 'file name',
+  `file_content_b64` mediumtext NOT NULL COMMENT 'file content encoded with base64',
+  `file_path` varchar(100) DEFAULT NULL COMMENT 'may be hdfs path , not be used now',
+  `add_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'add timestamp',
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='store files info saved in the platform';
 
 CREATE TABLE `table_blocker` (
-    `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
-    `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
-    `db_name` varchar(128) NOT NULL COMMENT 'Database name',
-    `table_name` varchar(256) NOT NULL COMMENT 'Table name',
-    `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
-    `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
-    `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
-    `properties` mediumtext COMMENT 'Blocker properties',
-    `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
-    PRIMARY KEY (`blocker_id`),
-    UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
+  `blocker_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Blocker unique id',
+  `catalog_name` varchar(64) NOT NULL COMMENT 'Catalog name',
+  `db_name` varchar(128) NOT NULL COMMENT 'Database name',
+  `table_name` varchar(256) NOT NULL COMMENT 'Table name',
+  `operations` varchar(128) NOT NULL COMMENT 'Blocked operations',
+  `create_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker create time',
+  `expiration_time` timestamp NULL DEFAULT NULL COMMENT 'Blocker expiration time',
+  `properties` mediumtext COMMENT 'Blocker properties',
+  `prev_blocker_id` bigint(20) NOT NULL DEFAULT -1 COMMENT 'prev blocker id when created',
+  PRIMARY KEY (`blocker_id`),
+  UNIQUE KEY `uq_prev` (`catalog_name`,`db_name`,`table_name`, `prev_blocker_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Table blockers' ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE `http_session` (
