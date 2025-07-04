@@ -44,6 +44,7 @@ import org.apache.amoro.shade.guava32.com.google.common.collect.Maps;
 import org.apache.amoro.shade.guava32.com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.amoro.utils.JacksonUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.internal.guava.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +57,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -83,7 +85,7 @@ public class OverviewManager extends PersistentBase {
       new ConcurrentLinkedDeque<>();
   private final AtomicInteger totalCpu = new AtomicInteger();
   private final AtomicLong totalMemory = new AtomicLong();
-  private final Map<String, CatalogSummary> catalogSummaryMap = new ConcurrentHashMap<>();
+  private volatile Map<String, CatalogSummary> catalogSummaryMap = new ConcurrentHashMap<>();
   private final int maxRecordCount;
 
   public OverviewManager(Configurations serverConfigs) {
@@ -111,10 +113,6 @@ public class OverviewManager extends PersistentBase {
 
   public List<OverviewTopTableItem> getAllTopTableItem() {
     return ImmutableList.copyOf(allTopTableItem);
-  }
-
-  private long getTotalDataSize() {
-    return catalogSummaryMap.values().stream().mapToLong(CatalogSummary::getTableTotalSize).sum();
   }
 
   public List<OverviewResourceUsageItem> getResourceUsageHistory(long startTime) {
@@ -172,56 +170,68 @@ public class OverviewManager extends PersistentBase {
   private void refreshTableCache(long ts) {
     List<CatalogMeta> catalogMetaList =
         getAs(CatalogMetaMapper.class, CatalogMetaMapper::getCatalogs);
+    Map<String, CatalogSummary> catalogSummaryMap = Maps.newConcurrentMap();
+    catalogMetaList.forEach(
+        meta -> catalogSummaryMap.put(meta.getCatalogName(), new CatalogSummary()));
     Map<String, Long> optimizingStatusMap = Maps.newHashMap();
-
+    Map<String, OverviewTopTableItem> topTableItemMap = Maps.newHashMap();
     List<TableRuntimeMeta> allMetas =
         getAs(TableMetaMapper.class, TableMetaMapper::selectTableRuntimeMetas);
-    for (CatalogMeta catalogMeta : catalogMetaList) {
-      String catalogName = catalogMeta.getCatalogName();
+
+    Map<String, Set<String>> catalogGroupSet = Maps.newHashMap();
+    for (TableRuntimeMeta meta : allMetas) {
+      String catalogName = meta.getCatalogName();
       catalogSummaryMap.putIfAbsent(catalogName, new CatalogSummary());
-      AtomicLong totalDataSize = new AtomicLong();
-      AtomicInteger totalFileCounts = new AtomicInteger();
-      Map<String, OverviewTopTableItem> topTableItemMap = Maps.newHashMap();
-      String optimizerGroup = null;
-
-      for (TableRuntimeMeta meta : allMetas) {
-        if (meta.getCatalogName().equals(catalogName)) {
-          if (optimizerGroup == null) {
-            optimizerGroup = meta.getOptimizerGroup();
-          }
-          Optional<OverviewTopTableItem> optItem = toTopTableItem(meta);
-          optItem.ifPresent(
-              tableItem -> {
-                topTableItemMap.put(tableItem.getTableName(), tableItem);
-                totalDataSize.addAndGet(tableItem.getTableSize());
-                totalFileCounts.addAndGet(tableItem.getFileCount());
-              });
-          String status = statusToMetricString(meta.getTableStatus());
-          if (StringUtils.isNotEmpty(status)) {
-            optimizingStatusMap.putIfAbsent(status, 0L);
-            optimizingStatusMap.computeIfPresent(status, (k, v) -> v + 1);
-          }
-        }
+      CatalogSummary catalogSummary = catalogSummaryMap.get(catalogName);
+      Optional<OverviewTopTableItem> optItem = toTopTableItem(meta);
+      optItem.ifPresent(
+          tableItem -> {
+            topTableItemMap.put(tableItem.getTableName(), tableItem);
+            catalogSummary.setTableCount(catalogSummary.getTableCount() + 1);
+            catalogSummary.setTableTotalSize(
+                catalogSummary.getTableTotalSize() + tableItem.getTableSize());
+          });
+      String optimizerGroup = meta.getOptimizerGroup();
+      catalogGroupSet.putIfAbsent(catalogName, Sets.newHashSet());
+      catalogGroupSet.get(catalogName).add(optimizerGroup);
+      String status = statusToMetricString(meta.getTableStatus());
+      if (StringUtils.isNotEmpty(status)) {
+        optimizingStatusMap.putIfAbsent(status, 0L);
+        optimizingStatusMap.computeIfPresent(status, (k, v) -> v + 1);
       }
-      catalogSummaryMap.get(catalogName).setTableCnt(topTableItemMap.size());
-      catalogSummaryMap.get(catalogName).setTableTotalSize(totalDataSize.get());
-
-      this.allTopTableItem.clear();
-      this.allTopTableItem.addAll(topTableItemMap.values());
-
-      List<OptimizerInstance> instances = getAs(OptimizerMapper.class, OptimizerMapper::selectAll);
-      AtomicInteger cpuCount = new AtomicInteger();
-      AtomicLong memoryBytes = new AtomicLong();
-      for (OptimizerInstance instance : instances) {
-        if (instance.getGroupName().equals(optimizerGroup)) {
-          cpuCount.addAndGet(instance.getThreadCount());
-          memoryBytes.addAndGet(instance.getMemoryMb() * 1024L * 1024L);
-        }
-      }
-      catalogSummaryMap.get(catalogName).setTotalCpu(cpuCount.get());
-      catalogSummaryMap.get(catalogName).setTotalMemory(memoryBytes.get());
     }
-    addAndCheck(new OverviewDataSizeItem(ts, getTotalDataSize()));
+    List<OptimizerInstance> instances = getAs(OptimizerMapper.class, OptimizerMapper::selectAll);
+    int cpuCount = 0;
+    long memoryBytes = 0L;
+    for (OptimizerInstance instance : instances) {
+      cpuCount += instance.getThreadCount();
+      memoryBytes += instance.getMemoryMb() * 1024L * 1024L;
+      for (Map.Entry<String, Set<String>> entry : catalogGroupSet.entrySet()) {
+        if (entry.getValue().contains(instance.getGroupName())) {
+          CatalogSummary catalogSummary = catalogSummaryMap.get(entry.getKey());
+          if (catalogSummary != null) {
+            catalogSummary.setTotalCpu(catalogSummary.getTotalCpu() + instance.getThreadCount());
+            catalogSummary.setTotalMemory(
+                catalogSummary.getTotalMemory() + instance.getMemoryMb() * 1024L * 1024L);
+          }
+        }
+      }
+    }
+    long totalDataSize =
+        catalogSummaryMap.values().stream().mapToLong(CatalogSummary::getTableTotalSize).sum();
+    addAndCheck(new OverviewDataSizeItem(ts, totalDataSize));
+    catalogSummaryMap.forEach(
+        (name, summary) -> {
+          if (this.catalogSummaryMap.containsKey(name)) {
+            summary.setOptimizingSummariesPerHour(
+                catalogSummaryMap.get(name).getOptimizingSummaries());
+          }
+        });
+    this.catalogSummaryMap = catalogSummaryMap;
+    this.totalCpu.set(cpuCount);
+    this.totalMemory.set(memoryBytes);
+    this.allTopTableItem.clear();
+    this.allTopTableItem.addAll(topTableItemMap.values());
     resetStatusMap();
     this.optimizingStatusCountMap.putAll(optimizingStatusMap);
   }

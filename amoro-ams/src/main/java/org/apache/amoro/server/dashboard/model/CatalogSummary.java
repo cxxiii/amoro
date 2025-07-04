@@ -33,12 +33,12 @@ public class CatalogSummary {
   private long tableTotalSize;
   private int totalCpu;
   private long totalMemory;
-  private final Map<LocalDateTime, OptimizingSummary> optimizingSummariesPerHour =
+  private volatile Map<LocalDateTime, OptimizingSummary> optimizingSummariesPerHour =
       Maps.newConcurrentMap();
 
   public CatalogSummary() {}
 
-  public void setTableCnt(int tableCnt) {
+  public void setTableCount(int tableCnt) {
     this.tableCount = tableCnt;
   }
 
@@ -54,8 +54,25 @@ public class CatalogSummary {
     this.totalMemory = totalMemory;
   }
 
+  public void setOptimizingSummariesPerHour(
+      Map<LocalDateTime, OptimizingSummary> optimizingSummariesPerHour) {
+    this.optimizingSummariesPerHour = optimizingSummariesPerHour;
+  }
+
   public long getTableTotalSize() {
     return tableTotalSize;
+  }
+
+  public int getTableCount() {
+    return tableCount;
+  }
+
+  public int getTotalCpu() {
+    return totalCpu;
+  }
+
+  public long getTotalMemory() {
+    return totalMemory;
   }
 
   public OverviewSummary summary(long startTime) {
