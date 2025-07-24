@@ -254,6 +254,11 @@ public class TableConfigurations {
                 properties,
                 TableProperties.SELF_OPTIMIZING_MAX_FILE_CNT,
                 TableProperties.SELF_OPTIMIZING_MAX_FILE_CNT_DEFAULT))
+        .setMaxCommitFileCount(
+            CompatiblePropertyUtil.propertyAsInt(
+                properties,
+                TableProperties.SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT,
+                TableProperties.SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT_DEFAULT))
         .setOpenFileCost(
             CompatiblePropertyUtil.propertyAsLong(
                 properties,

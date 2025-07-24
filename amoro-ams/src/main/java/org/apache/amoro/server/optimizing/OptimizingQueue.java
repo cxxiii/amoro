@@ -63,6 +63,7 @@ import org.apache.iceberg.util.StructLikeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -691,7 +692,16 @@ public class OptimizingQueue extends PersistentBase {
         }
         try {
           hasCommitted = true;
-          buildCommit().commit();
+//          buildCommit().commit();
+            buildCommit().forEach(commitTask -> {
+                try {
+                    commitTask.commit();
+                } catch (Throwable t) {
+                    LOG.error("{} Commit optimizing failed ", optimizingState.getTableIdentifier(), t);
+                    status = ProcessStatus.FAILED;
+                    failedReason = ExceptionUtil.getErrorMessage(t, 4000);
+                }
+            });
           if (allTasksPrepared()) {
             status = ProcessStatus.SUCCESS;
           } else if (taskMap.values().stream()
@@ -730,21 +740,52 @@ public class OptimizingQueue extends PersistentBase {
       return new MetricsSummary(taskSummaries);
     }
 
-    private UnKeyedTableCommit buildCommit() {
+    private List<UnKeyedTableCommit> buildCommit() {
+      List<UnKeyedTableCommit> commits = new ArrayList<>();
       MixedTable table =
           (MixedTable)
               catalogManager
                   .loadTable(optimizingState.getTableIdentifier().getIdentifier())
                   .originalTable();
+
+//        List<TaskRuntime<RewriteStageTask>> successTaskMap = taskMap.values().stream().filter(t -> t.getStatus() == Status.SUCCESS).collect(Collectors.toList());
+
+        int batchFileCnt = optimizingState.getTableConfiguration().getOptimizingConfig().getMaxCommitFileCount();
+        List<List<TaskRuntime<RewriteStageTask>>> batches = new ArrayList<>();
+        List<TaskRuntime<RewriteStageTask>> currentBatch = new ArrayList<>();
+        int currentFileCnt = 0;
+        for (TaskRuntime<RewriteStageTask> task : taskMap.values()) {
+            currentBatch.add(task);
+            RewriteStageTask taskDescriptor = task.getTaskDescriptor();
+            currentFileCnt += taskDescriptor.getOutput().getDataFiles().length + taskDescriptor.getOutput().getDeleteFiles().length +
+                    taskDescriptor.getInput().rewrittenDataFiles().length + taskDescriptor.getInput().rewrittenDeleteFiles().length;
+            if (currentFileCnt >= batchFileCnt) {
+                batches.add(currentBatch);
+                currentBatch = new ArrayList<>();
+                currentFileCnt = 0;
+            }
+        }
+        if(!currentBatch.isEmpty()) {
+            batches.add(currentBatch);
+        }
+
       if (table.isUnkeyedTable()) {
-        return new UnKeyedTableCommit(targetSnapshotId, table, taskMap.values());
+        for (List<TaskRuntime<RewriteStageTask>> batch : batches) {
+          UnKeyedTableCommit commit = new UnKeyedTableCommit(targetSnapshotId, table, batch);
+          commits.add(commit);
+        }
+        return commits;
       } else {
-        return new KeyedTableCommit(
-            table,
-            taskMap.values(),
-            targetSnapshotId,
-            convertPartitionSequence(table, fromSequence),
-            convertPartitionSequence(table, toSequence));
+        for (List<TaskRuntime<RewriteStageTask>> batch : batches) {
+          KeyedTableCommit commit = new KeyedTableCommit(
+                  table,
+                  batch,
+                  targetSnapshotId,
+                  convertPartitionSequence(table, fromSequence),
+                  convertPartitionSequence(table, toSequence));
+          commits.add(commit);
+        }
+        return commits;
       }
     }
 

@@ -92,6 +92,9 @@ public class TableProperties {
   public static final String SELF_OPTIMIZING_MAX_FILE_CNT = "self-optimizing.max-file-count";
   public static final int SELF_OPTIMIZING_MAX_FILE_CNT_DEFAULT = 10000;
 
+  public static final String SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT = "self-optimizing.max-commit-file-count";
+  public static final int SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT_DEFAULT = 50;
+
   public static final String SELF_OPTIMIZING_MAX_TASK_SIZE = "self-optimizing.max-task-size-bytes";
   public static final long SELF_OPTIMIZING_MAX_TASK_SIZE_DEFAULT = 134217728; // 128 MB
 

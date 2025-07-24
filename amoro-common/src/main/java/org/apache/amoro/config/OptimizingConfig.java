@@ -52,6 +52,8 @@ public class OptimizingConfig {
   // self-optimizing.max-file-count
   private int maxFileCount;
 
+  private int maxCommitFileCount;
+
   // read.split.open-file-cost
   private long openFileCost;
 
@@ -171,6 +173,15 @@ public class OptimizingConfig {
 
   public OptimizingConfig setMaxFileCount(int maxFileCount) {
     this.maxFileCount = maxFileCount;
+    return this;
+  }
+
+  public int getMaxCommitFileCount() {
+    return maxCommitFileCount;
+  }
+
+  public OptimizingConfig setMaxCommitFileCount(int maxCommitFileCount) {
+    this.maxCommitFileCount = maxCommitFileCount;
     return this;
   }
 
@@ -307,6 +318,7 @@ public class OptimizingConfig {
         && targetSize == that.targetSize
         && maxTaskSize == that.maxTaskSize
         && maxFileCount == that.maxFileCount
+        && maxCommitFileCount == that.maxCommitFileCount
         && openFileCost == that.openFileCost
         && fragmentRatio == that.fragmentRatio
         && Double.compare(minTargetSizeRatio, that.minTargetSizeRatio) == 0
@@ -335,6 +347,7 @@ public class OptimizingConfig {
         targetSize,
         maxTaskSize,
         maxFileCount,
+        maxCommitFileCount,
         openFileCost,
         fragmentRatio,
         minTargetSizeRatio,
@@ -362,6 +375,7 @@ public class OptimizingConfig {
         .add("targetSize", targetSize)
         .add("maxTaskSize", maxTaskSize)
         .add("maxFileCount", maxFileCount)
+        .add("maxCommitFileCount", maxCommitFileCount)
         .add("openFileCost", openFileCost)
         .add("fragmentRatio", fragmentRatio)
         .add("minorLeastFileCount", minorLeastFileCount)
