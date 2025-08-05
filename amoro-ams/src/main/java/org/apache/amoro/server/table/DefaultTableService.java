@@ -35,6 +35,7 @@ import org.apache.amoro.server.manager.MetricManager;
 import org.apache.amoro.server.optimizing.OptimizingStatus;
 import org.apache.amoro.server.persistence.PersistentBase;
 import org.apache.amoro.server.persistence.TableRuntimeMeta;
+import org.apache.amoro.server.persistence.mapper.OptimizingMapper;
 import org.apache.amoro.server.persistence.mapper.TableMetaMapper;
 import org.apache.amoro.shade.guava32.com.google.common.annotations.VisibleForTesting;
 import org.apache.amoro.shade.guava32.com.google.common.base.MoreObjects;
@@ -266,7 +267,15 @@ public class DefaultTableService extends PersistentBase implements TableService 
         disposeTable(tableRuntime.getTableIdentifier());
       }
     }
-
+    doAsTransaction(
+        () ->
+            doAs(
+                OptimizingMapper.class,
+                mapper -> mapper.deleteTaskRuntimesDropped(tableRuntimeMap.keySet())),
+        () ->
+            doAs(
+                OptimizingMapper.class,
+                mapper -> mapper.deleteOptimizingProcessDropped(tableRuntimeMap.keySet())));
     long end = System.currentTimeMillis();
     LOG.info("Syncing external catalogs took {} ms.", end - start);
   }

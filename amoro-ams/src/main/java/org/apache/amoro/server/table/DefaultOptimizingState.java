@@ -192,7 +192,21 @@ public class DefaultOptimizingState extends StatedPersistentBase implements Proc
           () ->
               doAs(
                   TableMetaMapper.class,
-                  mapper -> mapper.deleteOptimizingRuntime(tableIdentifier.getId())));
+                  mapper -> mapper.deleteOptimizingRuntime(tableIdentifier.getId())),
+          () ->
+              doAs(
+                  OptimizingMapper.class,
+                  mapper ->
+                      mapper.deleteTaskRuntimesBefore(
+                          tableIdentifier.getId(),
+                          SnowflakeIdGenerator.getMinSnowflakeId(System.currentTimeMillis()))),
+          () ->
+              doAs(
+                  OptimizingMapper.class,
+                  mapper ->
+                      mapper.deleteOptimizingProcessBefore(
+                          tableIdentifier.getId(),
+                          SnowflakeIdGenerator.getMinSnowflakeId(System.currentTimeMillis()))));
     } finally {
       tableLock.unlock();
     }

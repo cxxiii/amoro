@@ -58,6 +58,10 @@ public interface OptimizingMapper {
   void deleteOptimizingProcessBefore(
       @Param("tableId") long tableId, @Param("expireId") long expireId);
 
+  @Delete("DELETE FROM table_optimizing_process WHERE table_id not in (#{tableIds::number[]})")
+  @Lang(InListExtendedLanguageDriver.class)
+  void deleteOptimizingProcessDropped(@Param("tableIds") Collection<Long> tableIds);
+
   @Insert(
       "INSERT INTO table_optimizing_process(table_id, catalog_name, db_name, table_name ,process_id,"
           + " target_snapshot_id, target_change_snapshot_id, status, optimizing_type, plan_time, summary, from_sequence,"
@@ -259,6 +263,10 @@ public interface OptimizingMapper {
 
   @Delete("DELETE FROM task_runtime WHERE table_id = #{tableId} AND process_id < #{expireId}")
   void deleteTaskRuntimesBefore(@Param("tableId") long tableId, @Param("expireId") long expireId);
+
+  @Delete("DELETE FROM task_runtime WHERE table_id not in (#{tableIds::number[]})")
+  @Lang(InListExtendedLanguageDriver.class)
+  void deleteTaskRuntimesDropped(@Param("tableIds") Collection<Long> tableIds);
 
   /** Optimizing rewrite input and output operations below */
   @Update(
