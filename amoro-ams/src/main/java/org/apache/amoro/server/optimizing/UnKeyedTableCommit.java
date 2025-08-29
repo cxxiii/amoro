@@ -39,7 +39,9 @@ import org.apache.amoro.server.optimizing.TaskRuntime.Status;
 import org.apache.amoro.server.utils.IcebergTableUtil;
 import org.apache.amoro.shade.guava32.com.google.common.collect.Sets;
 import org.apache.amoro.table.MixedTable;
+import org.apache.amoro.table.TableProperties;
 import org.apache.amoro.table.UnkeyedTable;
+import org.apache.amoro.utils.CompatiblePropertyUtil;
 import org.apache.amoro.utils.ContentFiles;
 import org.apache.amoro.utils.IcebergThreadPools;
 import org.apache.amoro.utils.MixedTableUtil;
@@ -220,34 +222,92 @@ public class UnKeyedTableCommit {
 
     Set<ContentFile<?>> excludedDeleteFiles = getExcludedDeleteFiles(successTasks);
     List<DataFile> hiveNewDataFiles = moveFile2HiveIfNeed();
-    // collect files
+
+    int batchFileCnt =
+    CompatiblePropertyUtil.propertyAsInt(
+            table.properties(),
+            TableProperties.SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT,
+            TableProperties.SELF_OPTIMIZING_MAX_COMMIT_FILE_CNT_DEFAULT);
+    System.out.println("batchFileCnt: " + batchFileCnt);
+
+    Set<DataFile> allAddedDataFiles = Sets.newHashSet();
+    Set<DataFile> allRemovedDataFiles = Sets.newHashSet();
+    Set<DeleteFile> allAddedDeleteFiles = Sets.newHashSet();
+    Set<DeleteFile> allRemovedDeleteFiles = Sets.newHashSet();
+
     Set<DataFile> addedDataFiles = Sets.newHashSet();
     Set<DataFile> removedDataFiles = Sets.newHashSet();
     Set<DeleteFile> addedDeleteFiles = Sets.newHashSet();
     Set<DeleteFile> removedDeleteFiles = Sets.newHashSet();
-    successTasks.stream()
-        .map(TaskRuntime::getTaskDescriptor)
-        .forEach(
-            task -> {
-              if (CollectionUtils.isNotEmpty(hiveNewDataFiles)) {
-                addedDataFiles.addAll(hiveNewDataFiles);
-              } else if (task.getOutput().getDataFiles() != null) {
-                addedDataFiles.addAll(Arrays.asList(task.getOutput().getDataFiles()));
-              }
-              if (task.getOutput().getDeleteFiles() != null) {
-                addedDeleteFiles.addAll(Arrays.asList(task.getOutput().getDeleteFiles()));
-              }
-              if (task.getInput().rewrittenDataFiles() != null) {
-                removedDataFiles.addAll(Arrays.asList(task.getInput().rewrittenDataFiles()));
-              }
-              if (task.getInput().rewrittenDeleteFiles() != null) {
-                removedDeleteFiles.addAll(
-                    Arrays.stream(task.getInput().rewrittenDeleteFiles())
-                        .filter(deleteFile -> needRemove(excludedDeleteFiles, deleteFile))
-                        .map(ContentFiles::asDeleteFile)
-                        .collect(Collectors.toSet()));
-              }
-            });
+    int currentFileCnt = 0;
+    for (TaskRuntime<RewriteStageTask> task : successTasks) {
+
+      RewriteStageTask taskDescriptor = task.getTaskDescriptor();
+      if (CollectionUtils.isNotEmpty(hiveNewDataFiles)) {
+        for (DataFile dataFile : hiveNewDataFiles) {
+          if(allAddedDataFiles.contains(dataFile)) {
+            continue;
+          }
+          allAddedDataFiles.add(dataFile);
+          addedDataFiles.add(dataFile);
+        }
+      } else if (taskDescriptor.getOutput().getDataFiles() != null) {
+        for (DataFile dataFile : taskDescriptor.getOutput().getDataFiles()) {
+          if(allAddedDataFiles.contains(dataFile)) {
+            continue;
+          }
+          allAddedDataFiles.add(dataFile);
+          addedDataFiles.add(dataFile);
+        }
+      }
+      if (taskDescriptor.getOutput().getDeleteFiles() != null) {
+        for (DeleteFile deleteFile : taskDescriptor.getOutput().getDeleteFiles()) {
+          if(allAddedDeleteFiles.contains(deleteFile)) {
+            continue;
+          }
+          allAddedDeleteFiles.add(deleteFile);
+          addedDeleteFiles.add(deleteFile);
+        }
+      }
+      if (taskDescriptor.getInput().rewrittenDataFiles() != null) {
+        for (DataFile dataFile : taskDescriptor.getInput().rewrittenDataFiles()) {
+          if(allRemovedDataFiles.contains(dataFile)) {
+            continue;
+          }
+          allRemovedDataFiles.add(dataFile);
+          removedDataFiles.add(dataFile);
+        }
+      }
+      if (taskDescriptor.getInput().rewrittenDeleteFiles() != null) {
+        for (DeleteFile deleteFile : Arrays.stream(taskDescriptor.getInput().rewrittenDeleteFiles())
+                .filter(deleteFile -> needRemove(excludedDeleteFiles, deleteFile)).map(ContentFiles::asDeleteFile).collect(Collectors.toSet())) {
+          if(allRemovedDeleteFiles.contains(deleteFile)) {
+            continue;
+          }
+          allRemovedDeleteFiles.add(deleteFile);
+          removedDeleteFiles.add(deleteFile);
+        }
+      }
+      
+      currentFileCnt = addedDataFiles.size() + addedDeleteFiles.size() + removedDataFiles.size() + removedDeleteFiles.size();
+      if (currentFileCnt >= batchFileCnt) {
+        System.out.println("commitTransaction, currentFileCnt: " + currentFileCnt);
+        commitTransaction(startTime, addedDataFiles, removedDataFiles, addedDeleteFiles, removedDeleteFiles);
+        addedDataFiles = Sets.newHashSet();
+        removedDataFiles = Sets.newHashSet();
+        addedDeleteFiles = Sets.newHashSet();
+        removedDeleteFiles = Sets.newHashSet();
+        currentFileCnt = 0;
+        startTime = System.currentTimeMillis();
+      }
+    }
+    if (currentFileCnt > 0) {
+      System.out.println("commitTransaction, currentFileCnt: " + currentFileCnt);
+      commitTransaction(startTime, addedDataFiles, removedDataFiles, addedDeleteFiles, removedDeleteFiles);
+    }
+  }
+
+  private void commitTransaction(long startTime, Set<DataFile> addedDataFiles, Set<DataFile> removedDataFiles, Set<DeleteFile> addedDeleteFiles, Set<DeleteFile> removedDeleteFiles) throws OptimizingCommitException {
     try {
       Transaction transaction = table.asUnkeyedTable().newTransaction();
       if (removedDeleteFiles.isEmpty() && !addedDeleteFiles.isEmpty()) {

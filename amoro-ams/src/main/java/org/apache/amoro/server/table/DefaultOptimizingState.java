@@ -341,31 +341,26 @@ public class DefaultOptimizingState extends StatedPersistentBase implements Proc
 
   public void completeProcess(boolean success) {
     invokeConsistency(
-        () -> {
-          OptimizingStatus originalStatus = optimizingStatus;
-          OptimizingType processType = optimizingProcess.getOptimizingType();
-          boolean isSuccessful =
-                  success
-                          || optimizingProcess.getStatus() == ProcessStatus.SUCCESS
-                          || (optimizingProcess.getStatus() == ProcessStatus.CLOSED
-                          && optimizingProcess.containSuccessTasks());
-          if (isSuccessful) {
-            lastOptimizedSnapshotId = optimizingProcess.getTargetSnapshotId();
-            lastOptimizedChangeSnapshotId = optimizingProcess.getTargetChangeSnapshotId();
-            if (processType == OptimizingType.MINOR) {
-              lastMinorOptimizingTime = optimizingProcess.getPlanTime();
-            } else if (processType == OptimizingType.MAJOR) {
-              lastMajorOptimizingTime = optimizingProcess.getPlanTime();
-            } else if (processType == OptimizingType.FULL) {
-              lastFullOptimizingTime = optimizingProcess.getPlanTime();
-            }
-          }
-          optimizingMetrics.processComplete(processType, isSuccessful, optimizingProcess.getPlanTime());
-          updateOptimizingStatus(OptimizingStatus.IDLE);
-          optimizingProcess = null;
-          persistUpdatingRuntime();
-          tableHandler.handleTableChanged(tableRuntime, originalStatus);
-        });
+            () -> {
+              OptimizingStatus originalStatus = optimizingStatus;
+              OptimizingType processType = optimizingProcess.getOptimizingType();
+              if (success) {
+                lastOptimizedSnapshotId = optimizingProcess.getTargetSnapshotId();
+                lastOptimizedChangeSnapshotId = optimizingProcess.getTargetChangeSnapshotId();
+                if (processType == OptimizingType.MINOR) {
+                  lastMinorOptimizingTime = optimizingProcess.getPlanTime();
+                } else if (processType == OptimizingType.MAJOR) {
+                  lastMajorOptimizingTime = optimizingProcess.getPlanTime();
+                } else if (processType == OptimizingType.FULL) {
+                  lastFullOptimizingTime = optimizingProcess.getPlanTime();
+                }
+              }
+              optimizingMetrics.processComplete(processType, success, optimizingProcess.getPlanTime());
+              updateOptimizingStatus(OptimizingStatus.IDLE);
+              optimizingProcess = null;
+              persistUpdatingRuntime();
+              tableHandler.handleTableChanged(tableRuntime, originalStatus);
+            });
   }
 
   private void updateOptimizingStatus(OptimizingStatus status) {
